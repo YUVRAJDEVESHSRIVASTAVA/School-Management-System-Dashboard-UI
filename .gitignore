@@ -1,0 +1,14 @@
+# Java
+*.class
+*.jar
+target/
+
+# Maven wrapper
+.mvn/
+
+# IDE
+.vscode/
+.idea/
+
+# uploads
+uploads/

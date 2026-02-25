@@ -4,7 +4,7 @@
 ───────────────────────────────────────────── */
 // Local development:  "http://127.0.0.1:8080/api"
 // Production (Render): replace with your Render URL before deploying
-var API_BASE = "https://your-app-name.onrender.com/api";
+var API_BASE = "http://localhost:8080/api";
 
 async function apiGet(path) {
 	const res = await fetch(API_BASE + path);

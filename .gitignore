@@ -24,6 +24,16 @@ Student Detail/
 # Secrets — use application.properties.example as template
 backend/src/main/resources/application.properties
 
+# Local SQLite database (never commit — contains real data)
+*.db
+backend/school.db
+
+# Local utility / one-off scripts
+check_db.py
+fix_dates.py
+fix_dates2.py
+seed_data.py
+
 # Uploaded files
 uploads/certificates/*
 uploads/reports/*

@@ -1,9 +1,12 @@
+# Copy this file to application.properties and fill in your real values
+# application.properties is gitignored — never commit real credentials
+
 # Port — Render sets $PORT automatically
 server.port=${PORT:8080}
 
 # ── SQLite Cloud DataSource ─────────────────────────────────
-# Format: jdbc:sqlitecloud://HOST/DATABASE?apikey=YOUR_API_KEY
-spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:sqlitecloud://cvffg6cddz.g1.sqlite.cloud:8860/auth.sqlitecloud?apikey=cws0EEnyQ6nJuwLAn9xcK9Jx5BrbwAF6agBWg4emI2I}
+# Get your connection string from: https://sqlitecloud.io → your project → API Keys
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:sqlitecloud://YOUR_HOST.sqlite.cloud:8860/YOUR_DB?apikey=YOUR_API_KEY}
 spring.datasource.driver-class-name=io.sqlitecloud.SQLiteCloudDriver
 
 # ── JPA / Hibernate ──────────────────────────────────────────

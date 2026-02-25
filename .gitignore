@@ -21,6 +21,9 @@ Thumbs.db
 database/
 Student Detail/
 
+# Secrets — use application.properties.example as template
+backend/src/main/resources/application.properties
+
 # Uploaded files
 uploads/certificates/*
 uploads/reports/*

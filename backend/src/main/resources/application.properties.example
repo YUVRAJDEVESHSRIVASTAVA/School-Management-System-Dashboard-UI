@@ -4,19 +4,17 @@
 # Port — Render sets $PORT automatically
 server.port=${PORT:8080}
 
-# ── PostgreSQL DataSource (Neon free tier recommended) ───────
-# Get your connection string from: https://neon.tech → your project → Connection Details
-# Replace postgresql:// with jdbc:postgresql:// and add ?sslmode=require
-spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:postgresql://YOUR_HOST.neon.tech/neondb?sslmode=require}
-spring.datasource.username=${SPRING_DATASOURCE_USERNAME:your_neon_username}
-spring.datasource.password=${SPRING_DATASOURCE_PASSWORD:your_neon_password}
-spring.datasource.driver-class-name=org.postgresql.Driver
+# ── SQLite Cloud DataSource ─────────────────────────────────
+# Get your connection string from: https://sqlitecloud.io → your project → API Keys
+# URL format: jdbc:sqlite:sqlitecloud://YOUR_HOST.sqlite.cloud:8860/YOUR_DB?apikey=YOUR_KEY
+spring.datasource.url=${SPRING_DATASOURCE_URL:jdbc:sqlite:sqlitecloud://YOUR_HOST.sqlite.cloud:8860/YOUR_DB?apikey=YOUR_API_KEY}
+spring.datasource.driver-class-name=org.sqlite.JDBC
 
 # ── JPA / Hibernate ──────────────────────────────────────────
 spring.jpa.hibernate.ddl-auto=update
 spring.jpa.show-sql=false
 spring.jpa.properties.hibernate.format_sql=false
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
+spring.jpa.properties.hibernate.dialect=org.hibernate.community.dialect.SQLiteDialect
 
 # ── CORS ─────────────────────────────────────────────────────
 spring.web.cors.allowed-origins=*

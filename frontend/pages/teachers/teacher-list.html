@@ -1,8 +1,166 @@
-<!-- placeholder teacher-list.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Teacher List</title></head>
-<body>
-<h1>Teacher List</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Teachers – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<div class="sidebar">
+		<h2 class="logo">🏧 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../teacher-dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li><a href="#"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="../attendance/attendance-report.html"><i class="fa fa-calendar-check"></i> Attendance</a></li>
+			<li><a href="../marks/marks-report.html"><i class="fa fa-pen"></i> Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Teaching Staff</div>
+				<div class="overview" id="greeting">Loading…</div>
+			</header>
+			<main>
+				<section class="summary-grid" style="grid-template-columns:repeat(2,1fr);max-width:460px;margin-bottom:20px">
+					<div class="summary-card trophy"><div class="meta">Total Teachers</div><div class="big" id="cntTeachers">–</div></div>
+					<div class="summary-card work"><div class="meta">Subjects</div><div class="big" id="cntSubjects">–</div></div>
+				</section>
+				<section class="panel">
+				<h3 id="panelTitle">Teaching Staff</h3>
+				<p id="panelSub" style="color:#888;font-size:13px;margin-bottom:16px">Loading…</p>
+					<div class="teachers-grid" id="teachersGrid">
+						<p style="color:#999"><i class="fa fa-spinner fa-spin"></i> Loading from database…</p>
+					</div>
+				</section>
+			</main>
+		</div>
+	</div>
+	<script>
+		var SUBJECT_COLORS = {
+			"Mathematics":"#3498db", "Science":"#2ecc71", "English":"#9b59b6",
+			"Hindi":"#e67e22", "Computer Science":"#1abc9c", "Physical Education":"#e74c3c",
+			"Administration":"#2c3e50"
+		};
+		var PWD_MAP = {
+			"rajesh.kumar@school.edu":"Rajesh@123", "priya.nair@school.edu":"Priya@123",
+			"sunita.sharma@school.edu":"Sunita@123", "amit.tiwari@school.edu":"Amit@123",
+			"kavya.menon@school.edu":"Kavya@123", "ravi.shankar@school.edu":"Ravi@123",
+			"admin@school.edu":"Admin@123"
+		};
+
+		function getPendingEmails() {
+			return (JSON.parse(localStorage.getItem('pendingTeachers') || '[]')).map(function(p){ return p.email.toLowerCase(); });
+		}
+
+		function activateTeacher(email, name, subject) {
+			var users    = getUsers();
+			var password = name.split(' ')[0] + '@123';
+			var exists   = users.findIndex(function(u){ return u.username === email; });
+			if (exists === -1) {
+				users.push({ fullName: name, username: email, password: password, role: 'teacher', subject: subject });
+			} else {
+				users[exists].password = password;
+			}
+			saveUsers(users);
+			// Remove from pending
+			var pending = JSON.parse(localStorage.getItem('pendingTeachers') || '[]');
+			pending = pending.filter(function(p){ return p.email.toLowerCase() !== email.toLowerCase(); });
+			localStorage.setItem('pendingTeachers', JSON.stringify(pending));
+			// Refresh page
+			alert('✓ ' + name + ' activated!\nEmail: ' + email + '\nPassword: ' + password);
+			location.reload();
+		}
+		document.addEventListener("DOMContentLoaded", async function () {
+			var session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			try {
+				var teachers = await fetchAllTeachers();
+				var subjects = [...new Set(teachers.map(function(t){ return t.subject; }).filter(Boolean))];
+				document.getElementById("cntTeachers").textContent = teachers.length;
+				document.getElementById("cntSubjects").textContent = subjects.length;
+				var colors = ["#3498db","#2ecc71","#9b59b6","#e67e22","#1abc9c","#e74c3c","#f39c12"];
+				var isAdmin   = session.role === "teacher" && session.username === "admin@school.edu";
+				var isTeacher = session.role === "teacher" && !isAdmin;
+				var isStudent = session.role === "student";
+				var pendingEmails = getPendingEmails();
+
+				// Set heading based on role
+				if (isAdmin) {
+					document.getElementById("panelTitle").textContent = "All Teachers & Login Credentials";
+					document.getElementById("panelSub").textContent   = "Password format: FirstName@123 • Teacher-only login via the Teacher tab on the login page.";
+				} else if (isTeacher) {
+					document.getElementById("panelTitle").textContent = "Teaching Staff";
+					document.getElementById("panelSub").textContent   = "Your colleagues and the subjects they teach.";
+				} else {
+					document.getElementById("panelTitle").textContent = "Teaching Staff";
+					document.getElementById("panelSub").textContent   = "Your class teachers and the subjects they teach.";
+				}
+
+				var grid = document.getElementById("teachersGrid");
+				grid.innerHTML = teachers.map(function(t, i) {
+					var ini   = (t.name||"?").split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+					var color = SUBJECT_COLORS[t.subject] || colors[i % colors.length];
+					var email = (t.email || "").toLowerCase();
+					var pwd   = PWD_MAP[email] || (t.name ? t.name.split(" ")[0] + "@123" : "School@123");
+					var join  = t.joiningDate ? (Array.isArray(t.joiningDate) ? t.joiningDate.join("-") : t.joiningDate) : "–";
+
+					// STUDENT: only name, qualification, subject — no email, no credentials
+					if (isStudent) {
+						return '<div class="teacher-card">' +
+							'<div class="t-avatar" style="background:'+color+'">'+ini+'</div>' +
+							'<div class="t-info">' +
+								'<h4>'+t.name+'</h4>' +
+								'<p><i class="fa fa-graduation-cap fa-sm"></i>&nbsp;'+(t.qualification||'–')+'</p>' +
+								'<span class="subject-tag"><i class="fa fa-book fa-sm"></i>&nbsp;'+t.subject+'</span>' +
+							'</div></div>';
+					}
+
+					// TEACHER (non-admin): show email + details but NO password
+					if (isTeacher) {
+						return '<div class="teacher-card">' +
+							'<div class="t-avatar" style="background:'+color+'">'+ini+'</div>' +
+							'<div class="t-info">' +
+								'<h4>'+t.name+'</h4>' +
+								'<p><i class="fa fa-envelope fa-sm"></i>&nbsp;'+email+'</p>' +
+								'<p><i class="fa fa-graduation-cap fa-sm"></i>&nbsp;'+(t.qualification||'–')+'</p>' +
+								'<p><i class="fa fa-calendar fa-sm"></i>&nbsp;Joined: '+join+'</p>' +
+								'<span class="subject-tag">'+t.subject+'</span>' +
+							'</div></div>';
+					}
+
+					// ADMIN: full card with login credentials + pending activation
+					var isPending = pendingEmails.indexOf(email) !== -1;
+					var activatePart = isPending
+						? '<span class="pending-badge"><i class="fa fa-clock"></i> Pending Activation</span>' +
+						  '<br><button class="btn-activate" onclick="activateTeacher(\'' + email + '\',\'' + t.name.replace(/'/g,"\\'") + '\',\'' + (t.subject||'').replace(/'/g,"\\'") + '\')">' +
+						  '<i class="fa fa-check-circle"></i> Activate Login</button>'
+						: '<div class="cred-box"><i class="fa fa-key"></i>&nbsp;Login:&nbsp;<code>'+email+'</code>&nbsp;/&nbsp;<code>'+pwd+'</code></div>';
+					return '<div class="teacher-card">' +
+						'<div class="t-avatar" style="background:'+(isPending?'#aaa':color)+'">'+ini+'</div>' +
+						'<div class="t-info">' +
+							'<h4>'+t.name+(isPending ? ' <span style="color:#856404;font-size:12px">(Inactive)</span>' : '')+'</h4>' +
+							'<p><i class="fa fa-envelope fa-sm"></i>&nbsp;'+email+'</p>' +
+							'<p><i class="fa fa-graduation-cap fa-sm"></i>&nbsp;'+(t.qualification||'–')+'</p>' +
+							'<p><i class="fa fa-calendar fa-sm"></i>&nbsp;Joined: '+join+'</p>' +
+							'<span class="subject-tag">'+t.subject+'</span>' +
+							 activatePart +
+						'</div></div>';
+				}).join("");
+			} catch(e) {
+				document.getElementById("teachersGrid").innerHTML = "<p style='color:red'>Cannot reach server.</p>";
+			}
+		});
+	</script>
 </body>
 </html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Teacher Dashboard – School ERP</title>
+	<link rel="stylesheet" href="../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body class="bg">
+
+	<script src="../assets/js/login.js"></script>
+	<script src="../assets/js/api.js"></script>
+
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="#"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li><a href="teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="attendance/attendance-report.html"><i class="fa fa-list"></i> View Attendance</a></li>
+			<li><a href="attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="marks/marks-report.html"><i class="fa fa-chart-bar"></i> View Marks</a></li>
+			<li><a href="marks/enter-marks.html"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+
+			<header class="topbar">
+				<div class="title">Teacher Dashboard</div>
+				<div class="overview" id="todayDate"></div>
+			</header>
+
+			<main>
+
+				<!-- Teacher Profile Banner -->
+				<div class="teacher-profile">
+					<div class="teacher-avatar" id="teacherAvatar">–</div>
+					<div>
+						<h2 id="teacherName">–</h2>
+						<p><i class="fa fa-envelope"></i>&nbsp;<span id="teacherEmail">–</span></p>
+						<p><i class="fa fa-graduation-cap"></i>&nbsp;<span id="teacherQual">–</span></p>
+						<span class="subject-badge"><i class="fa fa-book-open"></i>&nbsp;<span id="teacherSubject">–</span></span>
+					</div>
+				</div>
+
+				<!-- Summary Cards -->
+				<section class="summary-grid">
+					<div class="summary-card trophy">
+						<div class="meta">Total Students</div>
+						<div class="big" id="cardStudents">–</div>
+					</div>
+					<div class="summary-card work" style="background:linear-gradient(135deg,#e8f5e9,#c8e6c9)">
+						<div class="meta">Pass Rate (Final Exam)</div>
+						<div class="big" id="cardPassRate">–</div>
+					</div>
+					<div class="summary-card stat" style="background:linear-gradient(135deg,#fff3e0,#ffe0b2)">
+						<div class="meta">Need Retest</div>
+						<div class="big" id="cardRetest">–</div>
+					</div>
+					<div class="summary-card classes" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0)">
+						<div class="meta">Absent Today</div>
+						<div class="big" id="cardAbsent">–</div>
+					</div>
+				</section>
+
+				<!-- Subject Marks Table -->
+				<section class="panel table-panel">
+					<h3>📝 Marks – <span id="subjectLabel">My Subject</span></h3>
+					<div class="filter-bar">
+						<input id="fName" type="text" placeholder="🔍 Student name…">
+						<select id="fExam"><option value="">All Exams</option></select>
+					</div>
+					<table>
+						<thead>
+							<tr><th>Student</th><th>Roll No</th><th>Class</th><th>Exam</th><th>Score</th><th>%</th><th>Status</th></tr>
+						</thead>
+						<tbody id="marksTbody">
+							<tr><td colspan="7" style="color:#999;text-align:center"><i class="fa fa-spinner fa-spin"></i> Loading…</td></tr>
+						</tbody>
+					</table>
+				</section>
+
+				<!-- Retest List -->
+				<section class="panel table-panel">
+					<h3>⚠️ Students Needing Retest <small style="font-size:13px;color:#888">(scored below 40% in Final Exam)</small></h3>
+					<table>
+						<thead>
+							<tr><th>Student</th><th>Roll No</th><th>Class</th><th>Subject</th><th>Score</th><th>Retest</th></tr>
+						</thead>
+						<tbody id="retestTbody">
+							<tr><td colspan="6" style="color:#999;text-align:center">Loading…</td></tr>
+						</tbody>
+					</table>
+				</section>
+
+				<!-- Recent Absences -->
+				<section class="panel table-panel">
+					<h3>📅 Recent Absences <small style="font-size:13px;color:#888">(last 7 days)</small></h3>
+					<table>
+						<thead>
+							<tr><th>Student</th><th>Roll No</th><th>Class</th><th>Date</th><th>Status</th></tr>
+						</thead>
+						<tbody id="absentTbody">
+							<tr><td colspan="5" style="color:#999;text-align:center">Loading…</td></tr>
+						</tbody>
+					</table>
+				</section>
+
+			</main>
+		</div>
+	</div>
+
+	<script>
+		var PASS_MARK = 40; // percentage
+		var session, allMarks = [], allAtt = [], subjMarks = [];
+
+		document.addEventListener("DOMContentLoaded", async function () {
+			session = getSession();
+			if (!session || session.role !== "teacher") { window.location.href = "login.html"; return; }
+
+			// Date header
+			document.getElementById("todayDate").textContent =
+				new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+			// Fill teacher profile from session
+			var name     = session.fullName || session.username || "Teacher";
+			var initials = name.split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+			document.getElementById("teacherAvatar").textContent  = initials;
+			document.getElementById("teacherName").textContent    = name;
+			document.getElementById("teacherEmail").textContent   = session.username || "–";
+			document.getElementById("teacherQual").textContent    = session.qualification || "–";
+			var subj = session.subject || "All Subjects";
+			document.getElementById("teacherSubject").textContent = subj;
+			document.getElementById("subjectLabel").textContent   = subj;
+
+			try {
+				var results = await Promise.all([
+					fetchAllStudents(),
+					fetchAllMarks(),
+					fetchAllAttendance()
+				]);
+				var students = results[0];
+				allMarks     = results[1];
+				allAtt       = results[2];
+
+				document.getElementById("cardStudents").textContent = students.length;
+
+				// Filter marks for this teacher's subject
+				subjMarks = (subj !== "All Subjects" && subj !== "Administration")
+					? allMarks.filter(function(m){ return m.subject === subj; })
+					: allMarks;
+
+				// Pass rate – Final exam
+				var finalMarks = subjMarks.filter(function(m){ return m.examType === "Final"; });
+				var passed     = finalMarks.filter(function(m){
+					return m.totalMarks > 0 && (m.marksObtained / m.totalMarks * 100) >= PASS_MARK;
+				});
+				document.getElementById("cardPassRate").textContent =
+					finalMarks.length ? Math.round(passed.length / finalMarks.length * 100) + "%" : "–";
+
+				// Retest: failed Final
+				var failed = finalMarks.filter(function(m){
+					return m.totalMarks > 0 && (m.marksObtained / m.totalMarks * 100) < PASS_MARK;
+				});
+				document.getElementById("cardRetest").textContent = failed.length;
+
+				// Absent today
+				var today   = new Date().toISOString().split("T")[0];
+				var todayAbs = allAtt.filter(function(a){
+					var d = Array.isArray(a.date) ? a.date.join("-") : a.date;
+					return d === today && a.status === "ABSENT";
+				});
+				document.getElementById("cardAbsent").textContent = todayAbs.length;
+
+				// Exam filter
+				var exams = [...new Set(subjMarks.map(function(m){ return m.examType; }))].sort();
+				document.getElementById("fExam").innerHTML =
+					'<option value="">All Exams</option>' +
+					exams.map(function(e){ return "<option>" + e + "</option>"; }).join("");
+
+				renderMarks();
+				renderRetest(failed);
+				renderAbsences();
+
+				document.getElementById("fName").addEventListener("input",  renderMarks);
+				document.getElementById("fExam").addEventListener("change", renderMarks);
+
+			} catch(e) {
+				document.getElementById("marksTbody").innerHTML =
+					"<tr><td colspan='7' style='color:red'>Cannot reach server. Start the backend on port 8080.</td></tr>";
+			}
+		});
+
+		/* ── Marks table ── */
+		function renderMarks() {
+			var name = document.getElementById("fName").value.trim().toLowerCase();
+			var exam = document.getElementById("fExam").value;
+			var filtered = subjMarks.filter(function(m){
+				var sN = m.student ? (m.student.name || "").toLowerCase() : "";
+				return (!name || sN.includes(name)) && (!exam || m.examType === exam);
+			});
+			document.getElementById("marksTbody").innerHTML = filtered.length
+				? filtered.map(function(m){
+					var pct  = m.totalMarks ? Math.round(m.marksObtained / m.totalMarks * 100) : 0;
+					var pass = pct >= PASS_MARK;
+					var cls  = m.student ? "Class " + (m.student.studentClass || "–") + " – " + (m.student.section || "–") : "–";
+					return "<tr>" +
+						"<td>" + (m.student ? m.student.name : "–") + "</td>" +
+						"<td>" + (m.student ? m.student.rollNumber : "–") + "</td>" +
+						"<td>" + cls + "</td>" +
+						"<td>" + m.examType + "</td>" +
+						"<td>" + m.marksObtained + "/" + m.totalMarks + "</td>" +
+						"<td>" + pct + "%</td>" +
+						"<td><span class='" + (pass ? "pass-badge" : "fail-badge") + "'>" + (pass ? "✓ PASS" : "✗ FAIL") + "</span>" +
+						(!pass ? " <span class='retest-badge'>Retest</span>" : "") + "</td></tr>";
+				}).join("")
+				: "<tr><td colspan='7' style='color:#999;text-align:center'>No records found.</td></tr>";
+		}
+
+		/* ── Retest list ── */
+		function renderRetest(failed) {
+			document.getElementById("retestTbody").innerHTML = failed.length
+				? failed.map(function(m){
+					var pct = m.totalMarks ? Math.round(m.marksObtained / m.totalMarks * 100) : 0;
+					var cls = m.student ? "Class " + (m.student.studentClass || "–") : "–";
+					return "<tr>" +
+						"<td>" + (m.student ? m.student.name : "–") + "</td>" +
+						"<td>" + (m.student ? m.student.rollNumber : "–") + "</td>" +
+						"<td>" + cls + "</td>" +
+						"<td>" + m.subject + "</td>" +
+						"<td style='color:#e74c3c;font-weight:700'>" + m.marksObtained + "/" + m.totalMarks + " (" + pct + "%)</td>" +
+						"<td><span class='retest-badge'><i class='fa fa-redo'></i> Schedule Retest</span></td></tr>";
+				}).join("")
+				: "<tr><td colspan='6' style='color:#2f6f45;text-align:center'>🎉 All students passed! No retest needed.</td></tr>";
+		}
+
+		/* ── Absences (last 7 days) ── */
+		function renderAbsences() {
+			var now     = new Date();
+			var weekAgo = new Date(now); weekAgo.setDate(now.getDate() - 7);
+			var abs = allAtt.filter(function(a){
+				if (a.status !== "ABSENT") return false;
+				var d = Array.isArray(a.date) ? new Date(a.date[0], a.date[1]-1, a.date[2]) : new Date(a.date);
+				return d >= weekAgo && d <= now;
+			}).sort(function(a,b){
+				var da = Array.isArray(a.date) ? a.date.join("-") : a.date;
+				var db = Array.isArray(b.date) ? b.date.join("-") : b.date;
+				return db.localeCompare(da);
+			}).slice(0, 25);
+			document.getElementById("absentTbody").innerHTML = abs.length
+				? abs.map(function(a){
+					var dateStr = Array.isArray(a.date) ? a.date.join("-") : (a.date || "–");
+					var cls     = a.student ? "Class " + (a.student.studentClass || "–") : "–";
+					return "<tr>" +
+						"<td>" + (a.student ? a.student.name : "–") + "</td>" +
+						"<td>" + (a.student ? a.student.rollNumber : "–") + "</td>" +
+						"<td>" + cls + "</td>" +
+						"<td>" + dateStr + "</td>" +
+						"<td><span class='fail-badge'>ABSENT</span></td></tr>";
+				}).join("")
+				: "<tr><td colspan='5' style='color:#2f6f45;text-align:center'>No absences in last 7 days.</td></tr>";
+		}
+	</script>
+
+</body>
+</html>

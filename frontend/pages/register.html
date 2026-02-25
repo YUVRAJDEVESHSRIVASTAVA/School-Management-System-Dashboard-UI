@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Register – School ERP</title>
+	<link rel="stylesheet" href="../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="auth-bg">
+
+	<div class="auth-card">
+		<div class="auth-logo">🏫 School ERP</div>
+		<div class="auth-sub">Create a new account</div>
+
+		<div class="role-tabs">
+			<button class="role-tab active" id="tabStudent" onclick="switchRole('student')">
+				<i class="fa fa-user-graduate"></i> Student
+			</button>
+			<button class="role-tab" id="tabTeacher" onclick="switchRole('teacher')">
+				<i class="fa fa-chalkboard-teacher"></i> Teacher
+			</button>
+		</div>
+
+		<div id="errorMsg"   class="auth-error"></div>
+		<div id="successMsg" class="auth-success"></div>
+
+		<form class="auth-form" id="registerForm" onsubmit="handleRegister(event)">
+			<input type="hidden" id="selectedRole" value="student">
+
+			<div class="form-group">
+				<label for="fullName">Full Name</label>
+				<input type="text" id="fullName" placeholder="Enter your full name" required>
+			</div>
+
+			<div class="form-group">
+				<label for="username">Username</label>
+				<input type="text" id="username" placeholder="Choose a username" required>
+			</div>
+
+			<div class="form-group" id="rollGroup">
+				<label for="rollNumber">Roll Number</label>
+				<input type="text" id="rollNumber" placeholder="e.g. STD-2026-0001">
+				<small style="color:#6b7f74;font-size:12px;">Leave blank to auto-generate</small>
+			</div>
+
+			<div class="form-group">
+				<label for="password">Password</label>
+				<input type="password" id="password" placeholder="Choose a password" required minlength="4">
+			</div>
+
+			<div class="form-group">
+				<label for="confirmPassword">Confirm Password</label>
+				<input type="password" id="confirmPassword" placeholder="Repeat password" required minlength="4">
+			</div>
+
+			<button type="submit" class="auth-btn">Register</button>
+		</form>
+
+		<div class="auth-footer">
+			Already have an account? <a href="login.html">Login here</a>
+		</div>
+	</div>
+
+	<script src="../assets/js/login.js"></script>
+	<script>
+		// Redirect if already logged in
+		const s = JSON.parse(localStorage.getItem("school_session") || "null");
+		if (s) {
+			window.location.href = s.role === "teacher" ? "dashboard.html" : "students/student-list.html";
+		}
+
+		function switchRole(role) {
+			document.getElementById("selectedRole").value = role;
+			document.getElementById("tabStudent").classList.toggle("active", role === "student");
+			document.getElementById("tabTeacher").classList.toggle("active", role === "teacher");
+			// Show roll number only for students
+			document.getElementById("rollGroup").style.display = role === "student" ? "flex" : "none";
+		}
+
+		function handleRegister(event) {
+			event.preventDefault();
+			const fullName  = document.getElementById("fullName").value.trim();
+			const username  = document.getElementById("username").value.trim();
+			const password  = document.getElementById("password").value;
+			const confirm   = document.getElementById("confirmPassword").value;
+			const role      = document.getElementById("selectedRole").value;
+			const roll      = document.getElementById("rollNumber").value.trim();
+			const errBox    = document.getElementById("errorMsg");
+			const okBox     = document.getElementById("successMsg");
+
+			errBox.style.display = "none";
+			okBox.style.display  = "none";
+
+			if (password !== confirm) {
+				errBox.textContent = "Passwords do not match.";
+				errBox.style.display = "block";
+				return;
+			}
+
+			// Students are stored in DB — registration page is only for teachers
+			if (role === "student") {
+				errBox.innerHTML = "Student accounts are pre-created by the school admin.<br>Use your assigned email and password to <a href='login.html'>login</a>. (e.g. aarav.mehta@school.edu / Aarav@123)";
+				errBox.style.display = "block";
+				return;
+			}
+
+			const result = registerUser({ fullName, username, password, role, rollNumber: roll });
+			if (result.ok) {
+				let msg = "✅ Teacher account created!";
+				msg += "<br><small>Redirecting to login in 3 seconds…</small>";
+				okBox.innerHTML = msg;
+				okBox.style.display = "block";
+				document.getElementById("registerForm").reset();
+				setTimeout(function () { window.location.href = "login.html"; }, 3000);
+			} else {
+				errBox.textContent = result.message;
+				errBox.style.display = "block";
+			}
+		}
+	</script>
+</body>
+</html>

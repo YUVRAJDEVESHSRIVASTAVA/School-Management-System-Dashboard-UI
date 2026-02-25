@@ -1,1 +1,122 @@
-/* placeholder style.css */
+/* ============================================================
+   School ERP  –  Page-Specific Component Styles
+   Loaded alongside dashboard.css and login.css on every page.
+   ============================================================ */
+
+/* ── Filter Bar ──────────────────────────────────────────── */
+.filter-bar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+.filter-bar label { font-size:12px; color:#666; font-weight:600; display:block; margin-bottom:4px; }
+.filter-bar select,
+.filter-bar input  { padding:9px 12px; border:1px solid #ddd; border-radius:6px; font-size:14px; min-width:140px; }
+.filter-bar input:focus,
+.filter-bar select:focus { outline:none; border-color:#3498db; }
+
+/* ── Shared Action Buttons ───────────────────────────────── */
+.btn-load { background:#2f6f45; color:#fff; border:none; padding:10px 22px; border-radius:6px; font-size:14px; font-weight:700; cursor:pointer; }
+.btn-load:hover { background:#245839; }
+
+.btn-submit { background:#3498db; color:#fff; border:none; padding:12px 32px; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; margin-top:16px; }
+.btn-submit:hover { background:#2176ae; }
+.btn-submit:disabled { background:#aaa; cursor:not-allowed; }
+
+.btn-save { background:#2f6f45; color:#fff; border:none; padding:13px 36px; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; margin-top:8px; }
+.btn-save:hover { background:#245839; }
+.btn-save:disabled { background:#aaa; cursor:not-allowed; }
+
+.btn-activate { background:#2f6f45; color:#fff; border:none; padding:7px 16px; border-radius:6px; font-size:13px; font-weight:700; cursor:pointer; margin-top:8px; }
+.btn-activate:hover { background:#245839; }
+
+/* ── Toast Notification ──────────────────────────────────── */
+.toast { position:fixed; bottom:24px; right:24px; background:#2f6f45; color:#fff; padding:14px 24px; border-radius:10px; font-weight:600; font-size:15px; z-index:9999; display:none; box-shadow:0 4px 16px rgba(0,0,0,.2); }
+.toast.error { background:#e74c3c; }
+
+/* ── Loading Placeholder ─────────────────────────────────── */
+.loading { text-align:center; color:#999; padding:40px; }
+
+/* ── Attendance / Status Badges ──────────────────────────── */
+.badge { padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; color:#fff; }
+.badge-present { background:#2f6f45; }
+.badge-absent  { background:#e74c3c; }
+.badge-late    { background:#e67e22; }
+
+/* ── Grade Badges (marks) ────────────────────────────────── */
+.badge-a { background:#2f6f45; }
+.badge-b { background:#3498db; }
+.badge-c { background:#e67e22; }
+.badge-f { background:#e74c3c; }
+
+/* ── Pass / Fail / Retest Badges ─────────────────────────── */
+.pass-badge   { padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; color:#fff; background:#2f6f45; }
+.fail-badge   { padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; color:#fff; background:#e74c3c; }
+.retest-badge { padding:3px 8px;  border-radius:12px; font-size:11px; font-weight:700; color:#fff; background:#e67e22; margin-left:4px; cursor:pointer; }
+
+/* ── Circular Grade Badge (Results) ──────────────────────── */
+.grade-badge { display:inline-block; width:40px; height:40px; line-height:40px; text-align:center; border-radius:50%; font-weight:700; font-size:16px; color:#fff; }
+.g-aplus { background:#1a7a3e; }
+.g-a     { background:#2f6f45; }
+.g-bplus { background:#2980b9; }
+.g-b     { background:#3498db; }
+.g-c     { background:#e67e22; }
+.g-d     { background:#e74c3c; }
+.g-f     { background:#c0392b; }
+
+/* ── Result Card ─────────────────────────────────────────── */
+.result-card { background:#fff; border-radius:12px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,.08); margin-bottom:16px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+.result-card .grade-big     { font-size:48px; font-weight:700; min-width:80px; text-align:center; }
+.result-card .info h3 { margin:0 0 6px; font-size:18px; color:#2c3e50; }
+.result-card .info p  { margin:2px 0; font-size:14px; color:#666; }
+
+/* ── Attendance Toggle Buttons ───────────────────────────── */
+.status-btn { border:2px solid #ddd; background:#f7f7f7; color:#555; padding:5px 14px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; transition:all .15s; margin-right:4px; }
+.status-btn.active-present { background:#2f6f45; color:#fff; border-color:#2f6f45; }
+.status-btn.active-absent  { background:#e74c3c; color:#fff; border-color:#e74c3c; }
+.status-btn.active-late    { background:#e67e22; color:#fff; border-color:#e67e22; }
+.student-row-att td    { padding:10px 8px; vertical-align:middle; }
+.student-row-att:hover { background:#f8f9fa; }
+
+/* ── Quick Mark-All Bar ──────────────────────────────────── */
+.quick-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+.quick-bar button { border:none; padding:7px 16px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+.qb-present { background:#d4edda; color:#2f6f45; }
+.qb-absent  { background:#fde8e8; color:#e74c3c; }
+.qb-late    { background:#fef4e6; color:#e67e22; }
+
+/* ── Marks Entry Table ───────────────────────────────────── */
+.marks-input { width:68px; padding:7px 8px; border:1px solid #ddd; border-radius:6px; font-size:14px; text-align:center; }
+.marks-input:focus { outline:none; border-color:#3498db; }
+.marks-row td    { padding:10px 8px; vertical-align:middle; }
+.marks-row:hover { background:#f8f9fa; }
+.pct-cell { font-weight:700; font-size:14px; min-width:48px; }
+
+/* ── Teacher Cards Grid ──────────────────────────────────── */
+.teachers-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+.teacher-card  { background:#fff; border-radius:12px; padding:20px; box-shadow:0 2px 8px rgba(0,0,0,.07); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.t-avatar { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:700; color:#fff; flex-shrink:0; }
+.t-info h4 { margin:0 0 3px; font-size:16px; color:#1f3b2e; }
+.t-info p  { margin:2px 0; font-size:13px; color:#666; }
+.subject-tag { display:inline-block; background:#e8f5e9; color:#2f6f45; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:600; margin-top:4px; }
+.cred-box      { background:#f0f7ff; border:1px solid #d0e4f7; border-radius:8px; padding:12px; margin-top:6px; font-size:13px; }
+.cred-box code { font-weight:700; color:#2c3e50; }
+.pending-badge { display:inline-block; background:#fff3cd; color:#856404; border:1px solid #ffc107; padding:2px 10px; border-radius:20px; font-size:12px; font-weight:700; margin-top:4px; }
+@media(max-width:480px) { .teachers-grid { grid-template-columns:1fr; } }
+
+/* ── Add-Teacher / Form Panel ────────────────────────────── */
+.form-panel { background:#fff; border-radius:12px; padding:32px 36px; max-width:700px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.form-grid            { display:grid; grid-template-columns:1fr 1fr; gap:18px 24px; }
+.form-grid .full      { grid-column:1/-1; }
+.form-group label     { font-size:12px; font-weight:700; color:#555; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; }
+.form-group input,
+.form-group select    { width:100%; padding:10px 13px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box; transition:border .2s; }
+.form-group input:focus,
+.form-group select:focus { outline:none; border-color:#2f6f45; }
+
+/* ── Teacher Dashboard Profile Card ─────────────────────── */
+.teacher-profile { background:linear-gradient(135deg,#1a3a4a,#2c3e50); color:#fff; border-radius:12px; padding:20px 24px; margin-bottom:18px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+.teacher-avatar  { width:64px; height:64px; border-radius:50%; background:#3498db; display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; color:#fff; flex-shrink:0; }
+.teacher-profile h2 { margin:0 0 4px; font-size:22px; }
+.teacher-profile p  { margin:3px 0; font-size:13px; opacity:.85; }
+.subject-badge { background:rgba(255,255,255,.2); padding:4px 14px; border-radius:20px; font-size:13px; font-weight:600; display:inline-block; margin-top:8px; }
+@media(max-width:600px) { .teacher-profile { flex-direction:column; align-items:flex-start; } }
+
+/* ── Student List Row Hover ──────────────────────────────── */
+#allStudentsTbody tr:hover { background:#f0f7ff; }

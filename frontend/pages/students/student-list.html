@@ -1,8 +1,299 @@
-<!-- placeholder student-list.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Student List</title></head>
-<body>
-<h1>Student List</h1>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Student Portal</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+
+<body class="bg">
+
+	<!-- ROLL NUMBER GUARD OVERLAY -->
+	<div id="rollOverlay" class="roll-overlay">
+		<div class="roll-box">
+			<h2>🔒 Verify Your Identity</h2>
+			<p>Enter your Roll Number <strong>or</strong> Email to access your portal.</p>
+			<div class="roll-error" id="rollError" style="display:none">Incorrect. Please try again.</div>
+			<input type="text" id="rollInput" placeholder="Roll No or Email (e.g. STD-2026-0001)">
+			<button class="auth-btn" onclick="verifyRoll()">Verify &amp; Continue</button>
+		</div>
+	</div>
+
+	<!-- AUTH + ROLE GUARD -->
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<script>
+		var _allStudentsCache = [];
+
+		document.addEventListener("DOMContentLoaded", async function () {
+			var session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			if (session.role === "teacher") {
+				document.getElementById("rollOverlay").style.display = "none";
+				await showTeacherView(session);
+			}
+			// student view revealed after roll verification
+		});
+
+		/* ── Roll verification (students) ── */
+		function verifyRoll() {
+			var session = getSession();
+			var entered = (document.getElementById("rollInput").value || "").trim();
+			var errEl   = document.getElementById("rollError");
+			if (!session) { window.location.href = "../login.html"; return; }
+			var rollMatch  = session.rollNumber && entered.toLowerCase() === session.rollNumber.toLowerCase();
+			var emailMatch = session.username   && entered.toLowerCase() === session.username.toLowerCase();
+			if (rollMatch || emailMatch) {
+				document.getElementById("rollOverlay").style.display = "none";
+				errEl.style.display = "none";
+				showStudentView(session);
+			} else {
+				errEl.style.display = "block";
+				errEl.textContent = "Incorrect roll number. You can also enter your email to verify.";
+			}
+		}
+
+		/* ══ TEACHER VIEW — full student directory from API ══ */
+		async function showTeacherView(session) {
+			document.getElementById("teacherView").style.display = "block";
+			document.getElementById("studentView").style.display = "none";
+			document.getElementById("portalTitle").textContent   = "All Students";
+			document.getElementById("portalGreeting").textContent =
+				"Logged in as " + (session.fullName || session.username);
+			try {
+				_allStudentsCache = await fetchAllStudents();
+			} catch(e) {
+				document.getElementById("allStudentsTbody").innerHTML = "<tr><td colspan='5' style='color:red'>Cannot reach server. Make sure the backend is running on port 8080.</td></tr>";
+				return;
+			}
+			applyFilters();
+			["filterName","filterClass","filterSection"].forEach(function(id) {
+				document.getElementById(id).addEventListener("input",  applyFilters);
+				document.getElementById(id).addEventListener("change", applyFilters);
+			});
+		}
+
+		function applyFilters() {
+			var students    = _allStudentsCache;
+			var classSelect = document.getElementById("filterClass");
+			var currentCls  = classSelect.value;
+			var classes = [...new Set(students.map(function(s){ return s.studentClass; }))]
+				.sort(function(a,b){ return Number(a) - Number(b); });
+			classSelect.innerHTML = '<option value="">All Classes</option>' +
+				classes.map(function(c){
+					return '<option value="'+c+'"'+(c===currentCls?' selected':'')+'>Class '+c+'</option>';
+				}).join("");
+
+			var name = document.getElementById("filterName").value.trim().toLowerCase();
+			var cls  = document.getElementById("filterClass").value;
+			var sec  = document.getElementById("filterSection").value.trim().toUpperCase();
+
+			var filtered = students.filter(function(s) {
+				return (!name || (s.name||"").toLowerCase().includes(name)) &&
+					   (!cls  || s.studentClass === cls) &&
+					   (!sec  || (s.section||"").toUpperCase() === sec);
+			});
+
+			document.getElementById("studentCount").textContent = filtered.length;
+			var tbody  = document.getElementById("allStudentsTbody");
+			var colors = ["#2f6f45","#3498db","#e67e22","#9b59b6","#e74c3c","#1abc9c"];
+			if (!filtered.length) {
+				tbody.innerHTML = "<tr><td colspan='5' style='color:#999;text-align:center'>No students match your filters.</td></tr>";
+				return;
+			}
+			tbody.innerHTML = filtered.map(function(s, i) {
+				var ini = (s.name||"?").split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+				return `<tr>
+					<td>${escapeHtml(s.rollNumber||"—")}</td>
+					<td><div style="display:flex;align-items:center;gap:8px">
+						<div style="background:${colors[i%colors.length]};width:30px;height:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex-shrink:0">${ini}</div>
+						<span>${escapeHtml(s.name||"—")}</span>
+					</div></td>
+					<td>Class ${escapeHtml(s.studentClass||"—")}</td>
+					<td>${escapeHtml(s.section||"—")}</td>
+					<td>${escapeHtml(s.dateOfBirth||"—")}</td>
+				</tr>`;
+			}).join("");
+		}
+
+		/* ══ STUDENT VIEW — personal details from API ══ */
+		async function showStudentView(session) {
+			document.getElementById("teacherView").style.display = "none";
+			document.getElementById("studentView").style.display = "block";
+			document.getElementById("portalTitle").textContent   = "Student Portal";
+
+			var displayName = session.fullName || session.username || "—";
+			document.getElementById("portalGreeting").textContent = "Welcome, " + displayName;
+			document.getElementById("cardName").textContent = displayName;
+			document.getElementById("cardRoll").textContent = session.rollNumber || "—";
+			document.getElementById("cardClass").textContent = "Loading…";
+			document.getElementById("cardDob").textContent   = "Loading…";
+
+			try {
+				// Fetch student record from DB for accurate details
+				var all = await fetchAllStudents();
+				var record = all.find(function(s) {
+					return s.rollNumber && session.rollNumber &&
+						s.rollNumber.toLowerCase() === session.rollNumber.toLowerCase();
+				});
+				if (record) {
+					document.getElementById("cardName").textContent  = record.name || displayName;
+					document.getElementById("cardClass").textContent = "Class "+record.studentClass+(record.section?" – Sec "+record.section:"");
+					document.getElementById("cardDob").textContent   = record.dateOfBirth || "—";
+					document.getElementById("portalGreeting").textContent = "Welcome, " + (record.name || displayName);
+
+					// Classmates from DB
+					var classmatesList = document.getElementById("classmatesList");
+					var c2 = ["#2f6f45","#3498db","#e67e22","#9b59b6","#e74c3c"];
+					var classmates = all.filter(function(s) {
+						return s.rollNumber !== record.rollNumber &&
+							s.studentClass === record.studentClass && s.section === record.section;
+					});
+					classmatesList.innerHTML = classmates.length
+						? classmates.map(function(s,i) {
+							var ini = (s.name||"?").split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+							return `<div class="student-row"><div class="student-info">
+								<div class="avatar-initials" style="background:${c2[i%c2.length]}">${ini}</div>
+								<div><div class="name">${s.name||"—"}</div><div class="sub">Roll: ${s.rollNumber||"—"}</div></div>
+							</div></div>`;
+						  }).join("")
+						: "<p style='color:#999;font-size:13px'>No classmates found.</p>";
+				} else {
+					document.getElementById("cardClass").textContent = "—";
+					document.getElementById("cardDob").textContent   = "—";
+				}
+
+				// Marks from API
+				var marksTbody = document.getElementById("marksTbody");
+				marksTbody.innerHTML = "<tr><td colspan='4'><i class='fa fa-spinner fa-spin'></i> Loading marks…</td></tr>";
+				var marks = await fetchMarksByRoll(session.rollNumber);
+				marksTbody.innerHTML = marks.length
+					? marks.map(function(m) {
+						var pct = m.totalMarks ? Math.round(m.marksObtained/m.totalMarks*100)+"%" : "—";
+						return `<tr><td>${m.subject} (${m.examType})</td><td>${m.marksObtained}</td><td>${m.totalMarks}</td><td>${pct}</td></tr>`;
+					  }).join("")
+					: "<tr><td colspan='4' style='color:#999'>No marks recorded yet.</td></tr>";
+			} catch(e) {
+				document.getElementById("cardClass").textContent = "—";
+				document.getElementById("cardDob").textContent   = "—";
+				document.getElementById("marksTbody").innerHTML  = "<tr><td colspan='4' style='color:red'>Cannot reach server.</td></tr>";
+			}
+		}
+
+		function escapeHtml(v) {
+			return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+		}
+	</script>
+
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="#"><i class="fa fa-user-graduate"></i> Student Portal</a></li>
+			<li><a href="../attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Attendance</a></li>
+			<li><a href="../marks/enter-marks.html"><i class="fa fa-pen"></i> Marks</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title" id="portalTitle">Student Portal</div>
+				<div class="overview" id="portalGreeting">Welcome</div>
+			</header>
+
+			<main>
+
+				<!-- ═══ TEACHER VIEW ═══ -->
+				<div id="teacherView" style="display:none">
+					<section class="summary-grid">
+						<div class="summary-card classes">
+							<div class="meta">Total Students</div>
+							<div class="big" id="studentCount">—</div>
+						</div>
+					</section>
+					<section class="panel table-panel">
+						<h3>All Student Details</h3>
+						<div class="filter-bar">
+							<input id="filterName" type="text" placeholder="🔍 Search by name…">
+							<select id="filterClass"><option value="">All Classes</option></select>
+							<input id="filterSection" type="text" placeholder="Section (A / B…)" style="max-width:140px">
+						</div>
+						<table>
+							<thead>
+								<tr><th>Roll No</th><th>Name</th><th>Class</th><th>Section</th><th>Date of Birth</th></tr>
+							</thead>
+							<tbody id="allStudentsTbody">
+								<tr><td colspan="5" style="color:#999">Loading…</td></tr>
+							</tbody>
+						</table>
+					</section>
+				</div>
+
+				<!-- ═══ STUDENT VIEW ═══ -->
+				<div id="studentView" style="display:none">
+					<section class="summary-grid">
+						<div class="summary-card trophy">
+							<div class="meta">Student Name</div>
+							<div class="big" id="cardName">—</div>
+						</div>
+						<div class="summary-card work">
+							<div class="meta">Roll Number</div>
+							<div class="big" id="cardRoll">—</div>
+						</div>
+						<div class="summary-card stat">
+							<div class="meta">Class &amp; Section</div>
+							<div class="big" id="cardClass">—</div>
+						</div>
+						<div class="summary-card classes">
+							<div class="meta">Date of Birth</div>
+							<div class="big" id="cardDob">—</div>
+						</div>
+					</section>
+
+					<section class="panel table-panel">
+						<h3>Assignments</h3>
+						<table>
+							<thead>
+								<tr><th>Subject</th><th>Assignment</th><th>Due Date</th><th>Status</th></tr>
+							</thead>
+							<tbody>
+								<tr><td>Maths</td><td>Algebra Worksheet</td><td>26 Feb 2026</td><td>Pending</td></tr>
+								<tr><td>Science</td><td>Chapter 5 Lab Report</td><td>28 Feb 2026</td><td>Submitted</td></tr>
+								<tr><td>English</td><td>Essay Writing</td><td>01 Mar 2026</td><td>Pending</td></tr>
+							</tbody>
+						</table>
+					</section>
+
+					<section class="panel table-panel">
+						<h3>Marks</h3>
+						<table>
+							<thead>
+								<tr><th>Subject</th><th>Marks Obtained</th><th>Total</th><th>Percentage</th></tr>
+							</thead>
+							<tbody id="marksTbody">
+								<tr><td colspan="4" style="color:#999">Loading…</td></tr>
+							</tbody>
+						</table>
+					</section>
+
+					<section class="panel">
+						<h3>My Classmates</h3>
+						<div class="student-list" id="classmatesList">
+							<p style="color:#999;font-size:13px">Loading…</p>
+						</div>
+					</section>
+				</div>
+
+			</main>
+		</div>
+	</div>
 </body>
+
 </html>

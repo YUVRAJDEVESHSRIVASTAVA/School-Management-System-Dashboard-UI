@@ -1,8 +1,177 @@
-<!-- placeholder view-results.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>View Results</title></head>
-<body>
-<h1>View Results</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Results – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<div class="sidebar">
+		<h2 class="logo">� School ERP</h2>
+		<ul class="menu">
+			<li><a href="../dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li class="admin-only" style="display:none"><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li class="admin-only" style="display:none"><a href="../teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="../attendance/attendance-report.html"><i class="fa fa-calendar-check"></i> My Attendance</a></li>
+			<li><a href="../marks/marks-report.html"><i class="fa fa-pen"></i> My Marks</a></li>
+			<li><a href="#"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Results</div>
+				<div class="overview" id="greeting">Loading…</div>
+			</header>
+			<main>
+				<section class="summary-grid">
+					<div class="summary-card trophy"><div class="meta">Total Results</div><div class="big" id="cntTotal">–</div></div>
+					<div class="summary-card work"><div class="meta">Avg %</div><div class="big" id="cntAvg">–</div></div>
+					<div class="summary-card stat"><div class="meta">Grade A+/A</div><div class="big" id="cntA">–</div></div>
+					<div class="summary-card classes"><div class="meta">Needs Attention (D/F)</div><div class="big" id="cntF">–</div></div>
+				</section>
+
+				<!-- Teacher view: table -->
+				<section class="panel table-panel" id="teacherPanel" style="display:none">
+					<h3>All Results</h3>
+					<div class="filter-bar">
+						<input id="fName" type="text" placeholder="🔍 Student name…">
+						<select id="fExam"><option value="">All Exams</option></select>
+						<select id="fClass"><option value="">All Classes</option></select>
+						<select id="fGrade"><option value="">All Grades</option><option>A+</option><option>A</option><option>B+</option><option>B</option><option>C</option><option>D</option><option>F</option></select>
+					</div>
+					<table>
+						<thead><tr><th>Student</th><th>Roll No</th><th>Class</th><th>Exam</th><th>Marks</th><th>%</th><th>Grade</th><th>Status</th></tr></thead>
+						<tbody id="resultsTbody"><tr><td colspan="8" class="loading"><i class="fa fa-spinner fa-spin"></i> Fetching…</td></tr></tbody>
+					</table>
+				</section>
+
+				<!-- Student view: cards -->
+				<section class="panel" id="studentPanel" style="display:none">
+					<h3>My Results</h3>
+					<div id="resultCards"><p class="loading"><i class="fa fa-spinner fa-spin"></i> Loading…</p></div>
+				</section>
+			</main>
+		</div>
+	</div>
+	<script>
+		var session, allResults = [];
+		var gradeColors = {"A+":"g-aplus","A":"g-a","B+":"g-bplus","B":"g-b","C":"g-c","D":"g-d","F":"g-f"};
+		var FAIL_GRADES = ["D","F"];
+
+		document.addEventListener("DOMContentLoaded", async function () {
+			session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			if (session.role !== "teacher") {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display="none"; });
+			} else {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display=""; });
+			}
+
+			try {
+				if (session.role === "teacher") {
+					document.getElementById("teacherPanel").style.display = "block";
+					allResults = await fetchAllResults();
+					populateFilters();
+					["fName","fExam","fClass","fGrade"].forEach(function(id){
+						document.getElementById(id).addEventListener("input", renderResults);
+						document.getElementById(id).addEventListener("change", renderResults);
+					});
+					renderResults();
+				} else {
+					document.getElementById("studentPanel").style.display = "block";
+					allResults = await fetchResultsByRoll(session.rollNumber);
+					renderStudentCards();
+					updateSummary(allResults);
+				}
+			} catch(e) {
+				document.getElementById("resultsTbody") && (document.getElementById("resultsTbody").innerHTML = "<tr><td colspan='7' style='color:red'>Cannot connect to server.</td></tr>");
+				document.getElementById("resultCards")  && (document.getElementById("resultCards").innerHTML  = "<p style='color:red'>Cannot connect to server. Make sure the backend is running on port 8080.</p>");
+			}
+		});
+
+		function populateFilters() {
+			var exams   = [...new Set(allResults.map(r=>r.examType))].sort();
+			var classes = [...new Set(allResults.map(r=>r.student && r.student.studentClass).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+			document.getElementById("fExam").innerHTML  = '<option value="">All Exams</option>'   + exams.map(e=>`<option>${e}</option>`).join("");
+			document.getElementById("fClass").innerHTML = '<option value="">All Classes</option>' + classes.map(c=>`<option value="${c}">Class ${c}</option>`).join("");
+		}
+
+		function renderResults() {
+			var name  = (document.getElementById("fName")  ||{value:""}).value.trim().toLowerCase();
+			var exam  = (document.getElementById("fExam")  ||{value:""}).value;
+			var cls   = (document.getElementById("fClass") ||{value:""}).value;
+			var grade = (document.getElementById("fGrade") ||{value:""}).value;
+
+			var filtered = allResults.filter(function(r) {
+				var sName = r.student ? (r.student.name||"").toLowerCase() : "";
+				var sCls  = r.student ? r.student.studentClass : "";
+				return (!name  || sName.includes(name))
+					&& (!exam  || r.examType === exam)
+					&& (!cls   || sCls === cls)
+					&& (!grade || r.grade === grade);
+			});
+			updateSummary(filtered);
+
+			if (!filtered.length) {
+				document.getElementById("resultsTbody").innerHTML = "<tr><td colspan='8' style='color:#999;text-align:center'>No records match.</td></tr>";
+				return;
+			}
+			document.getElementById("resultsTbody").innerHTML = filtered.map(function(r) {
+				var gc    = gradeColors[r.grade] || "g-f";
+				var pass  = !FAIL_GRADES.includes(r.grade);
+				var sName = r.student ? r.student.name : "–";
+				var sRoll = r.student ? r.student.rollNumber : "–";
+				var sCls  = r.student ? "Class "+(r.student.studentClass||"–")+" – "+(r.student.section||"–") : "–";
+				return `<tr>
+					<td>${sName}</td><td>${sRoll}</td><td>${sCls}</td>
+					<td>${r.examType}</td>
+					<td>${r.totalMarksObtained}/${r.totalMarks}</td>
+					<td>${r.percentage}%</td>
+					<td><span class="grade-badge ${gc}">${r.grade}</span></td>
+					<td><span class="${pass?'pass-badge':'fail-badge'}">${pass?'✓ PASS':'✗ FAIL'}</span>${!pass?" <span class='retest-badge'><i class='fa fa-redo'></i> Retest</span>":""}</td>
+				</tr>`;
+			}).join("");
+		}
+
+		function renderStudentCards() {
+			var container = document.getElementById("resultCards");
+			if (!allResults.length) { container.innerHTML = "<p style='color:#999'>No results found.</p>"; return; }
+			container.innerHTML = allResults.map(function(r) {
+				var gc    = gradeColors[r.grade] || "g-f";
+				var pass  = !FAIL_GRADES.includes(r.grade);
+				var gColor = {"g-aplus":"#1a7a3e","g-a":"#2f6f45","g-bplus":"#2980b9","g-b":"#3498db","g-c":"#e67e22","g-d":"#e74c3c","g-f":"#c0392b"}[gc];
+				var statusHtml = pass
+					? "<span class='pass-badge'>✓ PASS</span>"
+					: "<span class='fail-badge'>✗ FAIL</span> <span class='retest-badge'><i class='fa fa-redo'></i> Retest Required</span>";
+				return `<div class="result-card">
+					<div class="grade-big" style="color:${gColor}">${r.grade}</div>
+					<div class="info">
+						<h3>${r.examType}</h3>
+						<p>Marks: <strong>${r.totalMarksObtained} / ${r.totalMarks}</strong></p>
+						<p>Percentage: <strong>${r.percentage}%</strong></p>
+						<p>Date: ${Array.isArray(r.resultDate) ? r.resultDate.join("-") : (r.resultDate||"-")}</p>
+						<p style="margin-top:8px">${statusHtml}</p>
+					</div>
+				</div>`;
+			}).join("");
+		}
+
+		function updateSummary(data) {
+			var avgs = data.map(r=>r.percentage||0);
+			document.getElementById("cntTotal").textContent = data.length;
+			document.getElementById("cntAvg").textContent   = avgs.length ? Math.round(avgs.reduce((a,b)=>a+b,0)/avgs.length)+"%" : "–";
+			document.getElementById("cntA").textContent     = data.filter(r=>r.grade==="A+"||r.grade==="A").length;
+			document.getElementById("cntF").textContent     = data.filter(r=>r.grade==="D" ||r.grade==="F").length;
+		}
+	</script>
 </body>
 </html>

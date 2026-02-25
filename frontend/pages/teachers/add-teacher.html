@@ -1,8 +1,155 @@
-<!-- placeholder add-teacher.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Add Teacher</title></head>
-<body>
-<h1>Add Teacher</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Add Teacher – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<script>
+		(function(){
+			var s = getSession();
+			if (!s) { window.location.href = "../login.html"; }
+			else if (s.role !== "teacher") { window.location.href = "../dashboard.html"; }
+		})();
+	</script>
+
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../teacher-dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li><a href="teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="#"><i class="fa fa-user-plus"></i> Add Teacher</a></li>
+			<li><a href="../attendance/attendance-report.html"><i class="fa fa-list"></i> View Attendance</a></li>
+			<li><a href="../attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="../marks/marks-report.html"><i class="fa fa-chart-bar"></i> View Marks</a></li>
+			<li><a href="../marks/enter-marks.html"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Add Teacher</div>
+				<div class="overview" id="greeting">—</div>
+			</header>
+			<main>
+				<section class="panel form-panel">
+					<form id="teacherForm" onsubmit="submitForm(event)">
+						<div class="form-grid">
+							<div class="form-group full">
+								<label>Full Name *</label>
+								<input id="name" type="text" placeholder="e.g. Ankit Sharma" required>
+							</div>
+							<div class="form-group">
+								<label>Email Address *</label>
+								<input id="email" type="email" placeholder="ankit.sharma@school.edu" required>
+							</div>
+							<div class="form-group">
+								<label>Phone</label>
+								<input id="phone" type="tel" placeholder="e.g. 9876543210">
+							</div>
+							<div class="form-group">
+								<label>Subject *</label>
+								<select id="subject" required>
+									<option value="">— Select Subject —</option>
+									<option>Mathematics</option>
+									<option>Science</option>
+									<option>English</option>
+									<option>Hindi</option>
+									<option>Social Studies</option>
+									<option>Computer Science</option>
+									<option>Physics</option>
+									<option>Chemistry</option>
+									<option>Biology</option>
+									<option>Physical Education</option>
+									<option>Art</option>
+									<option>Music</option>
+									<option>Administration</option>
+								</select>
+							</div>
+							<div class="form-group">
+								<label>Qualification</label>
+								<input id="qualification" type="text" placeholder="e.g. M.Sc Mathematics, B.Ed">
+							</div>
+							<div class="form-group">
+								<label>Joining Date</label>
+								<input id="joiningDate" type="date">
+							</div>
+						</div>
+						<div style="margin-top:24px">
+							<button type="submit" class="btn-save" id="btnSave">
+								<i class="fa fa-user-plus"></i> Add Teacher
+							</button>
+							<a href="teacher-list.html" style="margin-left:16px;color:#666;font-size:14px">
+								<i class="fa fa-arrow-left"></i> Back to list
+							</a>
+						</div>
+					</form>
+				</section>
+			</main>
+		</div>
+	</div>
+
+	<div class="toast" id="toast"></div>
+
+	<script>
+		document.addEventListener("DOMContentLoaded", function () {
+			var s = getSession();
+			if (s) document.getElementById("greeting").textContent = s.fullName || s.username;
+			document.getElementById("joiningDate").value = new Date().toISOString().slice(0, 10);
+		});
+
+		async function submitForm(e) {
+			e.preventDefault();
+			var btn = document.getElementById("btnSave");
+			btn.disabled = true;
+			btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+
+			var payload = {
+				name          : document.getElementById("name").value.trim(),
+				email         : document.getElementById("email").value.trim(),
+				phone         : document.getElementById("phone").value.trim(),
+				subject       : document.getElementById("subject").value,
+				qualification : document.getElementById("qualification").value.trim(),
+				joiningDate   : document.getElementById("joiningDate").value || null
+			};
+
+			try {
+				await saveTeacher(payload);
+				// Mark as pending — admin must activate before they can login
+				var pending = JSON.parse(localStorage.getItem('pendingTeachers') || '[]');
+				pending = pending.filter(function(p){ return p.email !== payload.email; });
+				pending.push({ email: payload.email, name: payload.name, subject: payload.subject });
+				localStorage.setItem('pendingTeachers', JSON.stringify(pending));
+				showToast("✓ Teacher added! Pending admin activation.");
+				document.getElementById("teacherForm").reset();
+				document.getElementById("joiningDate").value = new Date().toISOString().slice(0, 10);
+				setTimeout(function(){ window.location.href = "teacher-list.html"; }, 1800);
+			} catch(err) {
+				showToast("Failed to add teacher. Email may already exist.", true);
+			}
+
+			btn.disabled = false;
+			btn.innerHTML = '<i class="fa fa-user-plus"></i> Add Teacher';
+		}
+
+		function showToast(msg, isError) {
+			var t = document.getElementById("toast");
+			t.textContent = msg;
+			t.className = "toast" + (isError ? " error" : "");
+			t.style.display = "block";
+			setTimeout(function(){ t.style.display = "none"; }, 3500);
+		}
+	</script>
 </body>
 </html>

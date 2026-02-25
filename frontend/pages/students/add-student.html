@@ -1,8 +1,98 @@
-<!-- placeholder add-student.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Add Student</title></head>
-<body>
-<h1>Add Student</h1>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Add Student</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body class="bg">
+	<!-- AUTH GUARD: only teachers may add students -->
+	<script src="../../assets/js/login.js"></script>
+	<script>
+		(function () {
+			var session = getSession();
+			if (!session) { window.location.href = "../login.html"; }
+			else if (session.role !== "teacher") { window.location.href = "student-list.html"; }
+		})();
+	</script>
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="student-list.html"><i class="fa fa-user-graduate"></i> Student Portal</a></li>
+			<li><a href="#"><i class="fa fa-user-plus"></i> Add Student</a></li>
+			<li><a href="../attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Attendance</a></li>
+			<li><a href="../marks/enter-marks.html"><i class="fa fa-pen"></i> Marks</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Add Student</div>
+				<div class="overview">Fill details and save</div>
+			</header>
+
+			<main>
+				<section class="panel">
+					<h3>Student Details</h3>
+					<form id="addStudentForm" class="student-form">
+						<div class="form-grid">
+							<div class="form-group">
+								<label for="studentName">Student Name</label>
+								<input id="studentName" name="studentName" type="text" placeholder="Enter full name" required>
+							</div>
+							<div class="form-group">
+								<label for="dateOfBirth">Date of Birth</label>
+								<input id="dateOfBirth" name="dateOfBirth" type="date" required>
+							</div>
+							<div class="form-group">
+								<label for="studentClass">Class</label>
+								<input id="studentClass" name="studentClass" type="text" placeholder="e.g. 10" required>
+							</div>
+							<div class="form-group">
+								<label for="section">Section</label>
+								<input id="section" name="section" type="text" placeholder="e.g. A" required>
+							</div>
+							<div class="form-group">
+								<label for="rollNumber">Auto Roll Number</label>
+								<input id="rollNumber" name="rollNumber" type="text" readonly>
+							</div>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn-primary">Save Student</button>
+							<button type="button" id="clearStudents" class="btn-secondary">Clear All</button>
+						</div>
+					</form>
+				</section>
+
+				<section class="panel table-panel">
+					<h3>Added Students</h3>
+					<table>
+						<thead>
+							<tr>
+								<th>Roll No</th>
+								<th>Name</th>
+								<th>DOB</th>
+								<th>Class</th>
+								<th>Section</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody id="studentsTableBody"></tbody>
+					</table>
+				</section>
+			</main>
+		</div>
+	</div>
+
+	<script src="../../assets/js/students.js"></script>
 </body>
+
 </html>

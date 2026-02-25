@@ -1,8 +1,145 @@
-<!-- placeholder marks-report.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Marks Report</title></head>
-<body>
-<h1>Marks Report</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>My Marks – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<div class="sidebar">
+		<h2 class="logo">� School ERP</h2>
+		<ul class="menu">
+			<li><a href="../dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li class="admin-only" style="display:none"><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li class="admin-only" style="display:none"><a href="../teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="../attendance/attendance-report.html"><i class="fa fa-list"></i> <span class="student-label">My Attendance</span></a></li>
+			<li class="teacher-only" style="display:none"><a href="../attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="#"><i class="fa fa-chart-bar"></i> <span id="sideMkLabel">My Marks</span></a></li>
+			<li class="teacher-only" style="display:none"><a href="enter-marks.html"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title" id="pageTitle">Marks Report</div>
+				<div class="overview" id="greeting">Loading…</div>
+			</header>
+			<main>
+				<section class="summary-grid">
+					<div class="summary-card trophy"><div class="meta">Total Records</div><div class="big" id="cntTotal">–</div></div>
+					<div class="summary-card work"><div class="meta">Avg Score</div><div class="big" id="cntAvg">–</div></div>
+					<div class="summary-card stat"><div class="meta">Highest</div><div class="big" id="cntHigh">–</div></div>
+					<div class="summary-card classes"><div class="meta">Lowest</div><div class="big" id="cntLow">–</div></div>
+				</section>
+				<section class="panel table-panel">
+					<h3>All Marks</h3>
+					<div class="filter-bar" id="filterBar" style="display:none">
+						<input id="fName" type="text" placeholder="🔍 Student name…">
+						<select id="fExam"><option value="">All Exams</option></select>
+						<select id="fSubject"><option value="">All Subjects</option></select>
+						<select id="fClass"><option value="">All Classes</option></select>
+					</div>
+					<table>
+							<thead><tr><th>Student</th><th>Roll No</th><th>Class</th><th>Subject</th><th>Exam</th><th>Marks</th><th>%</th><th>Status</th></tr></thead>
+							<tbody id="marksTbody"><tr><td colspan="8" class="loading"><i class="fa fa-spinner fa-spin"></i> Fetching from database…</td></tr></tbody>
+					</table>
+				</section>
+			</main>
+		</div>
+	</div>
+	<script>
+		var PASS_MARK = 40; // percent
+
+		var session, allMarks = [];
+
+		document.addEventListener("DOMContentLoaded", async function () {
+			session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			if (session.role !== "teacher") {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display="none"; });
+				document.getElementById("pageTitle").textContent = "My Marks";
+			} else {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display=""; });
+				document.querySelectorAll(".teacher-only").forEach(function(el){ el.style.display=""; });
+			}
+
+			try {
+				if (session.role === "teacher") {
+					document.getElementById("filterBar").style.display = "flex";
+					allMarks = await fetchAllMarks();
+					populateFilters();
+					["fName","fExam","fSubject","fClass"].forEach(function(id){
+						document.getElementById(id).addEventListener("input", renderMarks);
+						document.getElementById(id).addEventListener("change", renderMarks);
+					});
+				} else {
+					allMarks = await fetchMarksByRoll(session.rollNumber);
+				}
+				renderMarks();
+			} catch(e) {
+				document.getElementById("marksTbody").innerHTML = "<tr><td colspan='7' style='color:red'>Cannot connect to server. Make sure the backend is running on port 8080.</td></tr>";
+			}
+		});
+
+		function populateFilters() {
+			var exams    = [...new Set(allMarks.map(m=>m.examType))].sort();
+			var subjects = [...new Set(allMarks.map(m=>m.subject))].sort();
+			var classes  = [...new Set(allMarks.map(m=>m.student && m.student.studentClass).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+			document.getElementById("fExam").innerHTML    = '<option value="">All Exams</option>'    + exams.map(e=>`<option>${e}</option>`).join("");
+			document.getElementById("fSubject").innerHTML = '<option value="">All Subjects</option>' + subjects.map(s=>`<option>${s}</option>`).join("");
+			document.getElementById("fClass").innerHTML   = '<option value="">All Classes</option>'  + classes.map(c=>`<option value="${c}">Class ${c}</option>`).join("");
+		}
+
+		function renderMarks() {
+			var name    = (document.getElementById("fName")    || {value:""}).value.trim().toLowerCase();
+			var exam    = (document.getElementById("fExam")    || {value:""}).value;
+			var subject = (document.getElementById("fSubject") || {value:""}).value;
+			var cls     = (document.getElementById("fClass")   || {value:""}).value;
+
+			var filtered = allMarks.filter(function(m) {
+				var sName = m.student ? (m.student.name||"").toLowerCase() : "";
+				var sCls  = m.student ? m.student.studentClass : "";
+				return (!name    || sName.includes(name))
+					&& (!exam    || m.examType === exam)
+					&& (!subject || m.subject  === subject)
+					&& (!cls     || sCls       === cls);
+			});
+
+			var scores = filtered.map(m=> m.totalMarks ? Math.round(m.marksObtained/m.totalMarks*100) : 0);
+			document.getElementById("cntTotal").textContent = filtered.length;
+			document.getElementById("cntAvg").textContent   = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length)+"%" : "–";
+			document.getElementById("cntHigh").textContent  = scores.length ? Math.max(...scores)+"%" : "–";
+			document.getElementById("cntLow").textContent   = scores.length ? Math.min(...scores)+"%" : "–";
+
+			if (!filtered.length) {
+				document.getElementById("marksTbody").innerHTML = "<tr><td colspan='8' style='color:#999;text-align:center'>No records match filters.</td></tr>";
+				return;
+			}
+			document.getElementById("marksTbody").innerHTML = filtered.map(function(m) {
+				var pct  = m.totalMarks ? Math.round(m.marksObtained/m.totalMarks*100) : 0;
+				var bc   = pct>=75?"badge-a":pct>=60?"badge-b":pct>=40?"badge-c":"badge-f";
+				var pass = pct >= PASS_MARK;
+				var sName = m.student ? m.student.name : "–";
+				var sRoll = m.student ? m.student.rollNumber : "–";
+				var sCls  = m.student ? "Class "+(m.student.studentClass||"–")+" – "+(m.student.section||"–") : "–";
+				return `<tr>
+					<td>${sName}</td><td>${sRoll}</td><td>${sCls}</td>
+					<td>${m.subject}</td><td>${m.examType}</td>
+					<td>${m.marksObtained}/${m.totalMarks}</td>
+					<td><span class="badge ${bc}">${pct}%</span></td>
+					<td><span class="${pass?'pass-badge':'fail-badge'}">${pass?'✓ PASS':'✗ FAIL'}</span>${!pass?" <span class='retest-badge'>Retest</span>":""}</td>
+				</tr>`;
+			}).join("");
+		}
+	</script>
 </body>
 </html>

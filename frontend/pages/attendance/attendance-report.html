@@ -1,8 +1,136 @@
-<!-- placeholder attendance-report.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Attendance Report</title></head>
-<body>
-<h1>Attendance Report</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>My Attendance – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+	<div class="sidebar">
+		<h2 class="logo">� School ERP</h2>
+		<ul class="menu">
+			<li><a href="../dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li class="admin-only" style="display:none"><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li class="admin-only" style="display:none"><a href="../teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="#"><i class="fa fa-list"></i> <span id="sideAttLabel">My Attendance</span></a></li>
+			<li class="teacher-only" style="display:none"><a href="mark-attendance.html"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="../marks/marks-report.html"><i class="fa fa-chart-bar"></i> <span class="student-label">My Marks</span></a></li>
+			<li class="teacher-only" style="display:none"><a href="../marks/enter-marks.html"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title" id="pageTitle">Attendance Report</div>
+				<div class="overview" id="greeting">Loading…</div>
+			</header>
+			<main>
+				<section class="summary-grid">
+					<div class="summary-card trophy"><div class="meta">Total Records</div><div class="big" id="cntTotal">–</div></div>
+					<div class="summary-card work" style="background:linear-gradient(135deg,#2f6f45,#52a872)"><div class="meta">Present</div><div class="big" id="cntPresent">–</div></div>
+					<div class="summary-card stat" style="background:linear-gradient(135deg,#c0392b,#e74c3c)"><div class="meta">Absent</div><div class="big" id="cntAbsent">–</div></div>
+					<div class="summary-card classes" style="background:linear-gradient(135deg,#d35400,#e67e22)"><div class="meta">Late</div><div class="big" id="cntLate">–</div></div>
+				</section>
+				<section class="panel table-panel">
+					<h3>Attendance Records</h3>
+					<div class="filter-bar" id="filterBar" style="display:none">
+						<input id="fName" type="text" placeholder="🔍 Student name…">
+						<select id="fStatus"><option value="">All Status</option><option>PRESENT</option><option>ABSENT</option><option>LATE</option></select>
+						<select id="fClass"><option value="">All Classes</option></select>
+						<input id="fDate" type="date" title="Filter by date">
+					</div>
+					<table>
+						<thead><tr><th>Student</th><th>Roll No</th><th>Class</th><th>Date</th><th>Status</th></tr></thead>
+						<tbody id="attTbody"><tr><td colspan="5" class="loading"><i class="fa fa-spinner fa-spin"></i> Fetching from database…</td></tr></tbody>
+					</table>
+				</section>
+			</main>
+		</div>
+	</div>
+	<script>
+		var session, allAtt = [];
+
+		document.addEventListener("DOMContentLoaded", async function () {
+			session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			if (session.role !== "teacher") {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display="none"; });
+				document.getElementById("pageTitle").textContent = "My Attendance";
+			} else {
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display=""; });
+				document.querySelectorAll(".teacher-only").forEach(function(el){ el.style.display=""; });
+			}
+
+			try {
+				if (session.role === "teacher") {
+					document.getElementById("filterBar").style.display = "flex";
+					allAtt = await fetchAllAttendance();
+					populateClassFilter();
+					["fName","fStatus","fClass","fDate"].forEach(function(id){
+						document.getElementById(id).addEventListener("input", renderAtt);
+						document.getElementById(id).addEventListener("change", renderAtt);
+					});
+				} else {
+					allAtt = await fetchAttendanceByRoll(session.rollNumber);
+				}
+				renderAtt();
+			} catch(e) {
+				document.getElementById("attTbody").innerHTML = "<tr><td colspan='5' style='color:red'>Cannot connect to server. Make sure the backend is running on port 8080.</td></tr>";
+			}
+		});
+
+		function populateClassFilter() {
+			var classes = [...new Set(allAtt.map(a=>a.student && a.student.studentClass).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
+			document.getElementById("fClass").innerHTML = '<option value="">All Classes</option>' + classes.map(c=>`<option value="${c}">Class ${c}</option>`).join("");
+		}
+
+		function renderAtt() {
+			var name   = (document.getElementById("fName")   ||{value:""}).value.trim().toLowerCase();
+			var status = (document.getElementById("fStatus") ||{value:""}).value;
+			var cls    = (document.getElementById("fClass")  ||{value:""}).value;
+			var date   = (document.getElementById("fDate")   ||{value:""}).value;
+
+			var filtered = allAtt.filter(function(a) {
+				var sName = a.student ? (a.student.name||"").toLowerCase() : "";
+				var sCls  = a.student ? a.student.studentClass : "";
+				return (!name   || sName.includes(name))
+					&& (!status || a.status === status)
+					&& (!cls    || sCls === cls)
+					&& (!date   || (a.date||[]).join("-") === date || a.date === date);
+			});
+
+			var present = filtered.filter(a=>a.status==="PRESENT").length;
+			var absent  = filtered.filter(a=>a.status==="ABSENT").length;
+			var late    = filtered.filter(a=>a.status==="LATE").length;
+			document.getElementById("cntTotal").textContent   = filtered.length;
+			document.getElementById("cntPresent").textContent = present;
+			document.getElementById("cntAbsent").textContent  = absent;
+			document.getElementById("cntLate").textContent    = late;
+
+			if (!filtered.length) {
+				document.getElementById("attTbody").innerHTML = "<tr><td colspan='5' style='color:#999;text-align:center'>No records match filters.</td></tr>";
+				return;
+			}
+			// Sort by date desc
+			filtered.sort((a,b) => (b.date > a.date ? 1 : -1));
+			document.getElementById("attTbody").innerHTML = filtered.map(function(a) {
+				var bc    = a.status==="PRESENT"?"badge-present":a.status==="ABSENT"?"badge-absent":"badge-late";
+				var sName = a.student ? a.student.name : "–";
+				var sRoll = a.student ? a.student.rollNumber : "–";
+				var sCls  = a.student ? "Class "+(a.student.studentClass||"–")+" – "+(a.student.section||"–") : "–";
+				var dateStr = Array.isArray(a.date) ? a.date.join("-") : (a.date||"-");
+				return `<tr><td>${sName}</td><td>${sRoll}</td><td>${sCls}</td><td>${dateStr}</td><td><span class="badge ${bc}">${a.status}</span></td></tr>`;
+			}).join("");
+		}
+	</script>
 </body>
 </html>

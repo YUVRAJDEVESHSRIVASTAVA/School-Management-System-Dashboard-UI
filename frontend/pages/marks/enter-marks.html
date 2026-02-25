@@ -1,8 +1,225 @@
-<!-- placeholder enter-marks.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Enter Marks</title></head>
-<body>
-<h1>Enter Marks</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Enter Marks – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../teacher-dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li><a href="../teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="../attendance/attendance-report.html"><i class="fa fa-list"></i> View Attendance</a></li>
+			<li><a href="../attendance/mark-attendance.html"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="marks-report.html"><i class="fa fa-chart-bar"></i> View Marks</a></li>
+			<li><a href="#"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Enter Marks</div>
+				<div class="overview" id="greeting">—</div>
+			</header>
+			<main>
+				<section class="panel table-panel">
+					<!-- Exam details -->
+					<div class="filter-bar">
+						<div>
+							<label>Class</label>
+							<select id="selClass">
+								<option value="">— Select Class —</option>
+								<option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+							</select>
+						</div>
+						<div>
+							<label>Section</label>
+							<select id="selSection">
+								<option value="">All Sections</option>
+								<option>A</option><option>B</option><option>C</option>
+							</select>
+						</div>
+						<div>
+							<label>Exam Type</label>
+							<select id="selExam">
+								<option value="">— Select Exam —</option>
+								<option>Unit Test 1</option>
+								<option>Unit Test 2</option>
+								<option>Mid Term</option>
+								<option>Pre-Board</option>
+								<option>Final Term</option>
+								<option>Assignment</option>
+							</select>
+						</div>
+						<div>
+							<label>Subject</label>
+							<input type="text" id="selSubject" placeholder="e.g. Mathematics" style="min-width:160px">
+						</div>
+						<div>
+							<label>Total Marks</label>
+							<input type="number" id="selTotal" value="100" min="1" max="1000" style="min-width:90px">
+						</div>
+						<div>
+							<label>Exam Date</label>
+							<input type="date" id="selDate">
+						</div>
+						<div>
+							<label>&nbsp;</label>
+							<button class="btn-load" onclick="loadStudents()"><i class="fa fa-search"></i> Load Students</button>
+						</div>
+					</div>
+
+					<div id="marksSection" style="display:none">
+						<table>
+							<thead>
+								<tr>
+									<th>#</th>
+									<th>Name</th>
+									<th>Roll No</th>
+									<th>Class</th>
+									<th style="text-align:center">Marks Obtained</th>
+									<th style="text-align:center">Out of</th>
+									<th style="text-align:center">%</th>
+								</tr>
+							</thead>
+							<tbody id="marksBody"></tbody>
+						</table>
+						<div style="text-align:right;margin-top:12px">
+							<button class="btn-submit" id="btnSubmit" onclick="submitMarks()">
+								<i class="fa fa-save"></i> Save Marks
+							</button>
+						</div>
+					</div>
+
+					<div id="placeholder" style="color:#aaa;text-align:center;padding:48px;font-size:15px">
+						<i class="fa fa-pen fa-3x" style="display:block;margin-bottom:14px;opacity:.3"></i>
+						Fill in the exam details above, then click <strong style="color:#555">Load Students</strong>
+					</div>
+				</section>
+			</main>
+		</div>
+	</div>
+
+	<div class="toast" id="toast"></div>
+
+	<script>
+		var students = [];
+		var rowColors = ["#2f6f45","#3498db","#e67e22","#9b59b6","#e74c3c","#1abc9c","#e91e63","#f39c12"];
+
+		document.addEventListener("DOMContentLoaded", function () {
+			var session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			if (session.role !== "teacher") { window.location.href = "../dashboard.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			document.getElementById("selDate").value = new Date().toISOString().slice(0, 10);
+		});
+
+		async function loadStudents() {
+			var cls  = document.getElementById("selClass").value;
+			var sec  = document.getElementById("selSection").value;
+			var exam = document.getElementById("selExam").value;
+			var subj = document.getElementById("selSubject").value.trim();
+			if (!cls)  { showToast("Please select a class.", true); return; }
+			if (!exam) { showToast("Please select an exam type.", true); return; }
+			if (!subj) { showToast("Please enter a subject name.", true); return; }
+
+			document.getElementById("marksSection").style.display = "none";
+			document.getElementById("placeholder").innerHTML = '<i class="fa fa-spinner fa-spin fa-2x" style="display:block;margin-bottom:12px"></i>Loading…';
+			document.getElementById("placeholder").style.display = "block";
+
+			try {
+				students = sec ? await fetchStudentsByClassSection(cls, sec) : await fetchStudentsByClass(cls);
+				if (!students.length) {
+					document.getElementById("placeholder").innerHTML = "No students found for this class/section.";
+					return;
+				}
+				renderTable();
+				document.getElementById("marksSection").style.display = "block";
+				document.getElementById("placeholder").style.display  = "none";
+			} catch(e) {
+				document.getElementById("placeholder").innerHTML = '<span style="color:red"><i class="fa fa-exclamation-circle"></i> Cannot reach server.</span>';
+			}
+		}
+
+		function renderTable() {
+			var total = parseInt(document.getElementById("selTotal").value) || 100;
+			document.getElementById("marksBody").innerHTML = students.map(function(s, i) {
+				var ini = (s.name||"?").split(" ").map(function(w){return w[0];}).join("").toUpperCase().slice(0,2);
+				var col = rowColors[i % rowColors.length];
+				return `<tr class="marks-row" id="mrow-${s.id}">
+					<td><div style="background:${col};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${ini}</div></td>
+					<td style="font-weight:600">${s.name||"—"}</td>
+					<td style="color:#666;font-size:13px">${s.rollNumber||"—"}</td>
+					<td style="color:#666;font-size:13px">Class ${s.studentClass||"—"} – ${s.section||"—"}</td>
+					<td style="text-align:center">
+						<input class="marks-input" type="number" id="obt-${s.id}" min="0" max="${total}" value="0"
+							oninput="updatePct(${s.id},${total})">
+					</td>
+					<td style="text-align:center;color:#666">${total}</td>
+					<td style="text-align:center"><span class="pct-cell" id="pct-${s.id}">0%</span></td>
+				</tr>`;
+			}).join("");
+		}
+
+		function updatePct(studentId, total) {
+			var obt = parseInt(document.getElementById("obt-"+studentId).value) || 0;
+			var pct = total ? Math.round(obt / total * 100) : 0;
+			var el  = document.getElementById("pct-"+studentId);
+			el.textContent = pct + "%";
+			el.style.color = pct >= 60 ? "#2f6f45" : pct >= 40 ? "#e67e22" : "#e74c3c";
+		}
+
+		async function submitMarks() {
+			var exam  = document.getElementById("selExam").value;
+			var subj  = document.getElementById("selSubject").value.trim();
+			var total = parseInt(document.getElementById("selTotal").value) || 100;
+			var date  = document.getElementById("selDate").value;
+			if (!exam || !subj || !date) { showToast("Please fill exam type, subject and date.", true); return; }
+			if (!students.length) { showToast("No students loaded.", true); return; }
+
+			var btn = document.getElementById("btnSubmit");
+			btn.disabled = true;
+			btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+			var errors = 0;
+			for (var i = 0; i < students.length; i++) {
+				var s   = students[i];
+				var obt = parseInt(document.getElementById("obt-"+s.id).value) || 0;
+				try {
+					await saveMarksForStudent(s.id, {
+						subject       : subj,
+						marksObtained : obt,
+						totalMarks    : total,
+						examType      : exam,
+						examDate      : date
+					});
+				} catch(e) { errors++; }
+			}
+			btn.disabled = false;
+			btn.innerHTML = '<i class="fa fa-save"></i> Save Marks';
+			if (errors === 0) showToast("✓ Marks saved for " + students.length + " students!");
+			else showToast("Saved with " + errors + " error(s).", true);
+		}
+
+		function showToast(msg, isError) {
+			var t = document.getElementById("toast");
+			t.textContent = msg;
+			t.className = "toast" + (isError ? " error" : "");
+			t.style.display = "block";
+			setTimeout(function(){ t.style.display = "none"; }, 3500);
+		}
+	</script>
 </body>
 </html>

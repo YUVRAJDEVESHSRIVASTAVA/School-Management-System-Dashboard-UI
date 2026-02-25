@@ -1,0 +1,30 @@
+# Maven build output
+backend/target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# Java upgrade plan (contains local paths)
+backend/.github/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Sensitive / local-only data
+database/
+Student Detail/
+
+# Uploaded files
+uploads/certificates/*
+uploads/reports/*
+uploads/students/*
+!uploads/certificates/.gitkeep
+!uploads/reports/.gitkeep
+!uploads/students/.gitkeep

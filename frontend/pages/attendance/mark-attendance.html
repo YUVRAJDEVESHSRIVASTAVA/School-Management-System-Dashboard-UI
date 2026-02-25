@@ -1,8 +1,194 @@
-<!-- placeholder mark-attendance.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Mark Attendance</title></head>
-<body>
-<h1>Mark Attendance</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Mark Attendance – School ERP</title>
+	<link rel="stylesheet" href="../../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+	<link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body class="bg">
+	<script src="../../assets/js/login.js"></script>
+	<script src="../../assets/js/api.js"></script>
+
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="../teacher-dashboard.html"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li><a href="../students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li><a href="../teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="attendance-report.html"><i class="fa fa-list"></i> View Attendance</a></li>
+			<li><a href="#"><i class="fa fa-calendar-check"></i> Mark Attendance</a></li>
+			<li><a href="../marks/marks-report.html"><i class="fa fa-chart-bar"></i> View Marks</a></li>
+			<li><a href="../marks/enter-marks.html"><i class="fa fa-pen"></i> Enter Marks</a></li>
+			<li><a href="../results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('../login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<div class="main-content">
+		<div class="container">
+			<header class="topbar">
+				<div class="title">Mark Attendance</div>
+				<div class="overview" id="greeting">—</div>
+			</header>
+			<main>
+				<section class="panel table-panel">
+					<div class="filter-bar">
+						<div>
+							<label>Class</label>
+							<select id="selClass">
+								<option value="">— Select Class —</option>
+								<option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+							</select>
+						</div>
+						<div>
+							<label>Section</label>
+							<select id="selSection">
+								<option value="">All Sections</option>
+								<option>A</option><option>B</option><option>C</option>
+							</select>
+						</div>
+						<div>
+							<label>Date</label>
+							<input type="date" id="selDate">
+						</div>
+						<div>
+							<label>&nbsp;</label>
+							<button class="btn-load" onclick="loadStudents()"><i class="fa fa-search"></i> Load Students</button>
+						</div>
+					</div>
+
+					<div class="quick-bar" id="quickBar" style="display:none">
+						<strong style="font-size:13px;color:#555">Mark all:</strong>
+						<button class="qb-present" onclick="markAll('PRESENT')"><i class="fa fa-check"></i> All Present</button>
+						<button class="qb-absent"  onclick="markAll('ABSENT')"><i class="fa fa-times"></i> All Absent</button>
+						<button class="qb-late"    onclick="markAll('LATE')"><i class="fa fa-clock"></i> All Late</button>
+					</div>
+
+					<div id="attSection" style="display:none">
+						<table>
+							<thead>
+								<tr><th>#</th><th>Name</th><th>Roll No</th><th>Class</th><th>Mark Status</th></tr>
+							</thead>
+							<tbody id="attBody"></tbody>
+						</table>
+						<div style="text-align:right;margin-top:12px">
+							<button class="btn-submit" id="btnSubmit" onclick="submitAttendance()">
+								<i class="fa fa-save"></i> Save Attendance
+							</button>
+						</div>
+					</div>
+
+					<div id="placeholder" style="color:#aaa;text-align:center;padding:48px;font-size:15px">
+						<i class="fa fa-calendar-check fa-3x" style="display:block;margin-bottom:14px;opacity:.3"></i>
+						Select a class and date, then click <strong style="color:#555">Load Students</strong>
+					</div>
+				</section>
+			</main>
+		</div>
+	</div>
+
+	<div class="toast" id="toast"></div>
+
+	<script>
+		var students = [], currentStatus = {};
+
+		document.addEventListener("DOMContentLoaded", function () {
+			var session = getSession();
+			if (!session) { window.location.href = "../login.html"; return; }
+			if (session.role !== "teacher") { window.location.href = "../dashboard.html"; return; }
+			document.getElementById("greeting").textContent = session.fullName || session.username;
+			document.getElementById("selDate").value = new Date().toISOString().slice(0, 10);
+		});
+
+		async function loadStudents() {
+			var cls = document.getElementById("selClass").value;
+			var sec = document.getElementById("selSection").value;
+			if (!cls) { showToast("Please select a class.", true); return; }
+
+			document.getElementById("attSection").style.display  = "none";
+			document.getElementById("quickBar").style.display    = "none";
+			document.getElementById("placeholder").innerHTML = '<i class="fa fa-spinner fa-spin fa-2x" style="display:block;margin-bottom:12px"></i>Loading…';
+			document.getElementById("placeholder").style.display = "block";
+
+			try {
+				students = sec ? await fetchStudentsByClassSection(cls, sec) : await fetchStudentsByClass(cls);
+				if (!students.length) {
+					document.getElementById("placeholder").innerHTML = "No students found for this class/section.";
+					return;
+				}
+				renderTable();
+				document.getElementById("attSection").style.display  = "block";
+				document.getElementById("quickBar").style.display    = "flex";
+				document.getElementById("placeholder").style.display = "none";
+			} catch(e) {
+				document.getElementById("placeholder").innerHTML = '<span style="color:red"><i class="fa fa-exclamation-circle"></i> Cannot reach server. Make sure backend is running on port 8080.</span>';
+			}
+		}
+
+		var rowColors = ["#2f6f45","#3498db","#e67e22","#9b59b6","#e74c3c","#1abc9c","#e91e63","#f39c12"];
+
+		function renderTable() {
+			currentStatus = {};
+			document.getElementById("attBody").innerHTML = students.map(function(s, i) {
+				currentStatus[s.id] = "PRESENT";
+				var ini = (s.name||"?").split(" ").map(function(w){return w[0];}).join("").toUpperCase().slice(0,2);
+				var col = rowColors[i % rowColors.length];
+				return `<tr class="student-row-att">
+					<td><div style="background:${col};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${ini}</div></td>
+					<td style="font-weight:600">${s.name||"—"}</td>
+					<td style="color:#666;font-size:13px">${s.rollNumber||"—"}</td>
+					<td style="color:#666;font-size:13px">Class ${s.studentClass||"—"} – ${s.section||"—"}</td>
+					<td>
+						<button class="status-btn active-present" id="btn-${s.id}-PRESENT" onclick="setStatus(${s.id},'PRESENT')">✓ Present</button>
+						<button class="status-btn"                id="btn-${s.id}-ABSENT"  onclick="setStatus(${s.id},'ABSENT')">✕ Absent</button>
+						<button class="status-btn"                id="btn-${s.id}-LATE"    onclick="setStatus(${s.id},'LATE')">⏱ Late</button>
+					</td>
+				</tr>`;
+			}).join("");
+		}
+
+		function setStatus(studentId, status) {
+			currentStatus[studentId] = status;
+			["PRESENT","ABSENT","LATE"].forEach(function(s){
+				var btn = document.getElementById("btn-"+studentId+"-"+s);
+				if (btn) btn.className = "status-btn" + (s === status ? " active-"+s.toLowerCase() : "");
+			});
+		}
+
+		function markAll(status) {
+			students.forEach(function(s){ setStatus(s.id, status); });
+		}
+
+		async function submitAttendance() {
+			var date = document.getElementById("selDate").value;
+			if (!date) { showToast("Please select a date.", true); return; }
+			if (!students.length) { showToast("No students loaded.", true); return; }
+			var btn = document.getElementById("btnSubmit");
+			btn.disabled = true;
+			btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving…';
+			var errors = 0;
+			for (var i = 0; i < students.length; i++) {
+				try {
+					await saveAttendanceForStudent(students[i].id, { date: date, status: currentStatus[students[i].id] || "PRESENT" });
+				} catch(e) { errors++; }
+			}
+			btn.disabled = false;
+			btn.innerHTML = '<i class="fa fa-save"></i> Save Attendance';
+			if (errors === 0) showToast("✓ Attendance saved for " + students.length + " students!");
+			else showToast("Saved with " + errors + " error(s).", true);
+		}
+
+		function showToast(msg, isError) {
+			var t = document.getElementById("toast");
+			t.textContent = msg;
+			t.className = "toast" + (isError ? " error" : "");
+			t.style.display = "block";
+			setTimeout(function(){ t.style.display = "none"; }, 3500);
+		}
+	</script>
 </body>
 </html>

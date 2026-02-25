@@ -1,8 +1,296 @@
-<!-- placeholder dashboard.html -->
-<!doctype html>
-<html>
-<head><meta charset="utf-8"><title>Dashboard</title></head>
-<body>
-<h1>Dashboard</h1>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>School Dashboard</title>
+	<link rel="stylesheet" href="../assets/css/dashboard.css">
+	<link rel="stylesheet" href="../assets/css/login.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body class="bg">
+
+	<!-- AUTH GUARD -->
+	<script src="../assets/js/login.js"></script>
+	<script src="../assets/js/api.js"></script>
+	<script>
+		document.addEventListener("DOMContentLoaded", async function () {
+			var session = getSession();
+			if (!session) { window.location.href = "login.html"; return; }
+			// Teachers have their own dedicated dashboard
+			if (session.role === "teacher") { window.location.href = "teacher-dashboard.html"; return; }
+
+			document.getElementById("dashGreeting").textContent = session.fullName || session.username || "User";
+
+			// Only teachers/admins see the admin-only elements; they are hidden by default in HTML
+			var isStudent = session.role === "student";
+			if (!isStudent) {
+				// Reveal admin-only items for teachers
+				document.querySelectorAll(".admin-only").forEach(function(el){ el.style.display = ""; });
+			}
+
+			try {
+				if (isStudent) {
+					// ── Student view: only their own data ──────────────────
+					var roll = session.rollNumber;
+
+					// Fetch their own attendance + marks in parallel
+					var attData = [], marksData = [];
+					try { attData   = await fetchAttendanceByRoll(roll); } catch(e) {}
+					try { marksData = await fetchMarksByRoll(roll);      } catch(e) {}
+
+					// ── Stat cards ──────────────────────────────────────────
+					var totalAtt   = attData.length;
+					var presentAtt = attData.filter(function(a){ return (a.status||"").toUpperCase() === "PRESENT"; }).length;
+					var absentAtt  = attData.filter(function(a){ return (a.status||"").toUpperCase() === "ABSENT";  }).length;
+					var lateAtt    = attData.filter(function(a){ return (a.status||"").toUpperCase() === "LATE";    }).length;
+					var attPct     = totalAtt ? Math.round(presentAtt / totalAtt * 100) : 0;
+
+					var scores   = marksData.map(function(m){ return m.totalMarks ? Math.round(m.marksObtained / m.totalMarks * 100) : 0; });
+					var avgScore = scores.length ? Math.round(scores.reduce(function(a,b){ return a+b; }, 0) / scores.length) : 0;
+					var highScore = scores.length ? Math.max.apply(null, scores) : 0;
+
+					document.getElementById("cardScoreLabel").textContent    = "My Avg Score";
+					document.getElementById("cardScore").textContent         = scores.length ? avgScore + "%" : "—";
+					document.getElementById("cardSubjectsLabel").textContent = "Subjects Recorded";
+					document.getElementById("cardSubjects").textContent      = marksData.length || "—";
+					document.getElementById("cardAttLabel").textContent      = "My Attendance";
+					document.getElementById("cardAttendance").textContent    = totalAtt ? attPct + "%" : "—";
+					document.getElementById("cardTotalLabel").textContent    = "My Class";
+					document.getElementById("cardTotalStudents").textContent = session.studentClass
+						? "Class " + session.studentClass + (session.section ? " – " + session.section : "")
+						: "—";
+
+					// ── Profile + stats panel ───────────────────────────────
+					var initials   = (session.fullName||"?").split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+					var classLabel = session.studentClass ? "Class " + session.studentClass + (session.section ? " – " + session.section : "") : "—";
+					var attColor   = attPct >= 75 ? "#2f6f45" : attPct >= 50 ? "#e67e22" : "#e74c3c";
+					var scoreColor = avgScore >= 60 ? "#2f6f45" : avgScore >= 40 ? "#e67e22" : "#e74c3c";
+
+					// Build marks-by-subject mini table
+					var subjectRows = "";
+					if (marksData.length) {
+						var bySubject = {};
+						marksData.forEach(function(m) {
+							var sub = m.subject || "Unknown";
+							if (!bySubject[sub]) bySubject[sub] = { obtained: 0, total: 0, exams: 0 };
+							bySubject[sub].obtained += (m.marksObtained || 0);
+							bySubject[sub].total    += (m.totalMarks    || 0);
+							bySubject[sub].exams    += 1;
+						});
+						subjectRows = Object.keys(bySubject).map(function(sub) {
+							var pct  = bySubject[sub].total ? Math.round(bySubject[sub].obtained / bySubject[sub].total * 100) : 0;
+							var col  = pct >= 60 ? "#2f6f45" : pct >= 40 ? "#e67e22" : "#e74c3c";
+							var grade = pct >= 90 ? "A+" : pct >= 80 ? "A" : pct >= 70 ? "B+" : pct >= 60 ? "B" : pct >= 50 ? "C" : pct >= 40 ? "D" : "F";
+							return `<tr>
+								<td style="padding:8px 6px;font-weight:600">${sub}</td>
+								<td style="padding:8px 6px;text-align:center">${bySubject[sub].exams}</td>
+								<td style="padding:8px 6px;text-align:center">${bySubject[sub].obtained}/${bySubject[sub].total}</td>
+								<td style="padding:8px 6px;text-align:center;font-weight:700;color:${col}">${pct}%</td>
+								<td style="padding:8px 6px;text-align:center"><span style="background:${col};color:#fff;border-radius:6px;padding:2px 8px;font-weight:700;font-size:12px">${grade}</span></td>
+							</tr>`;
+						}).join("");
+					}
+
+					var profList = document.getElementById("proficiencyList");
+					profList.innerHTML = `
+					<!-- Profile row -->
+					<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+						<div style="background:#2f6f45;color:#fff;width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex-shrink:0">${initials}</div>
+						<div>
+							<div style="font-size:20px;font-weight:700;color:#2c3e50">${session.fullName || "—"}</div>
+							<div style="color:#666;font-size:14px;margin-top:3px">${classLabel} &nbsp;|&nbsp; Roll: <strong>${roll || "—"}</strong></div>
+							<div style="color:#999;font-size:13px;margin-top:2px">${session.username || ""}</div>
+						</div>
+					</div>
+
+					<!-- Quick stats row -->
+					<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+						<div style="background:#f8fffe;border:1px solid #d4edda;border-radius:10px;padding:14px 20px;flex:1;min-width:110px;text-align:center">
+							<div style="font-size:26px;font-weight:700;color:${attColor}">${totalAtt ? attPct + "%" : "—"}</div>
+							<div style="font-size:12px;color:#666;margin-top:4px">Attendance</div>
+							<div style="font-size:11px;color:#999;margin-top:2px">${presentAtt}P / ${absentAtt}A / ${lateAtt}L</div>
+						</div>
+						<div style="background:#f5f9ff;border:1px solid #cce0ff;border-radius:10px;padding:14px 20px;flex:1;min-width:110px;text-align:center">
+							<div style="font-size:26px;font-weight:700;color:${scoreColor}">${scores.length ? avgScore + "%" : "—"}</div>
+							<div style="font-size:12px;color:#666;margin-top:4px">Avg Marks</div>
+							<div style="font-size:11px;color:#999;margin-top:2px">Best: ${scores.length ? highScore + "%" : "—"}</div>
+						</div>
+						<div style="background:#fffbf5;border:1px solid #fde8c8;border-radius:10px;padding:14px 20px;flex:1;min-width:110px;text-align:center">
+							<div style="font-size:26px;font-weight:700;color:#e67e22">${marksData.length || "—"}</div>
+							<div style="font-size:12px;color:#666;margin-top:4px">Exams</div>
+							<div style="font-size:11px;color:#999;margin-top:2px">Recorded</div>
+						</div>
+					</div>
+
+					<!-- Marks by subject -->
+					${marksData.length ? `
+					<div style="margin-bottom:20px">
+						<div style="font-weight:700;color:#2c3e50;margin-bottom:8px;font-size:15px">Marks by Subject</div>
+						<div style="overflow-x:auto">
+						<table style="width:100%;border-collapse:collapse;font-size:13px">
+							<thead><tr style="background:#f4f7f9;color:#666">
+								<th style="padding:8px 6px;text-align:left">Subject</th>
+								<th style="padding:8px 6px;text-align:center">Exams</th>
+								<th style="padding:8px 6px;text-align:center">Score</th>
+								<th style="padding:8px 6px;text-align:center">%</th>
+								<th style="padding:8px 6px;text-align:center">Grade</th>
+							</tr></thead>
+							<tbody>${subjectRows}</tbody>
+						</table>
+						</div>
+					</div>` : `<div style="color:#aaa;font-size:13px;margin-bottom:16px">No marks recorded yet.</div>`}
+
+					<!-- Recent attendance -->
+					${attData.length ? `
+					<div>
+						<div style="font-weight:700;color:#2c3e50;margin-bottom:8px;font-size:15px">Recent Attendance <span style="font-size:12px;font-weight:400;color:#999">(last 5)</span></div>
+						<div style="display:flex;gap:8px;flex-wrap:wrap">
+							${attData.slice(-5).reverse().map(function(a){
+								var s = (a.status||"").toUpperCase();
+								var bg = s==="PRESENT"?"#2f6f45":s==="ABSENT"?"#e74c3c":"#e67e22";
+								return `<div style="background:${bg};color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600">
+									${a.date||""} <span style="opacity:.85">${s}</span>
+								</div>`;
+							}).join("")}
+						</div>
+					</div>` : `<div style="color:#aaa;font-size:13px">No attendance records yet.</div>`}
+
+					<!-- Nav buttons -->
+					<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+						<a href="attendance/attendance-report.html" style="background:#2f6f45;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px"><i class="fa fa-calendar-check"></i> My Attendance</a>
+						<a href="marks/marks-report.html" style="background:#3498db;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px"><i class="fa fa-pen"></i> My Marks</a>
+						<a href="results/view-results.html" style="background:#9b59b6;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px"><i class="fa fa-chart-line"></i> My Results</a>
+					</div>`;
+
+					document.getElementById("recentSectionTitle").textContent = "My Dashboard";
+					var tableSection = document.getElementById("allStudentsSection");
+					if (tableSection) tableSection.style.display = "none";
+
+				} else {
+					// ── Teacher / Admin view: show all students ─────────────
+					document.getElementById("cardAttLabel").textContent      = "Avg Attendance";
+					document.getElementById("cardTotalLabel").textContent    = "Total Students";
+					document.getElementById("cardScoreLabel").textContent    = "Overall Score";
+					document.getElementById("cardSubjectsLabel").textContent = "Work Assigned";
+					document.getElementById("cardScore").textContent         = "68%";
+					document.getElementById("cardSubjects").textContent      = "36";
+
+					var students = await fetchAllStudents();
+					document.getElementById("cardTotalStudents").textContent = students.length || 0;
+					document.getElementById("cardAttendance").textContent    = "96%";
+
+					var profList = document.getElementById("proficiencyList");
+					var recent5  = students.slice(0, 5);
+					var colors   = ["#2f6f45","#3498db","#e67e22","#9b59b6","#e74c3c"];
+					if (!recent5.length) {
+						profList.innerHTML = "<p style='color:#999;font-size:13px'>No students found.</p>";
+					} else {
+						profList.innerHTML = recent5.map(function(s, i) {
+							var initials   = (s.name||"?").split(" ").map(function(w){ return w[0]; }).join("").toUpperCase().slice(0,2);
+							var classLabel = s.studentClass ? "Class "+s.studentClass+(s.section?" – "+s.section:"") : "—";
+							return `<div class="student-row"><div class="student-info">
+								<div class="avatar-initials" style="background:${colors[i%colors.length]}">${initials}</div>
+								<div><div class="name">${s.name||"—"}</div><div class="sub">${classLabel} &bull; Roll: ${s.rollNumber||"—"}</div></div>
+							</div></div>`;
+						}).join("");
+					}
+
+					var tbody = document.getElementById("admissionsTbody");
+					if (!students.length) {
+						tbody.innerHTML = "<tr><td colspan='4' style='color:#999'>No students found.</td></tr>";
+					} else {
+						tbody.innerHTML = students.map(function(s, idx) {
+							var cls = s.studentClass ? s.studentClass+(s.section?" – "+s.section:"") : "—";
+							return `<tr><td>${s.rollNumber||(idx+1)}</td><td>${s.name||"—"}</td><td>${cls}</td><td>${s.dateOfBirth||"—"}</td></tr>`;
+						}).join("");
+					}
+				}
+			} catch(e) {
+				document.getElementById("cardTotalStudents").textContent = "!";
+				var tbody = document.getElementById("admissionsTbody");
+				if (tbody) tbody.innerHTML = "<tr><td colspan='4' style='color:red'>Cannot reach server. Check backend is running on port 8080.</td></tr>";
+			}
+		});
+	</script>
+
+	<!-- SIDEBAR -->
+	<div class="sidebar">
+		<h2 class="logo">🏫 School ERP</h2>
+		<ul class="menu">
+			<li><a href="#"><i class="fa fa-home"></i> Dashboard</a></li>
+			<li class="admin-only" style="display:none"><a href="students/student-list.html"><i class="fa fa-user-graduate"></i> Students</a></li>
+			<li class="admin-only" style="display:none"><a href="teachers/teacher-list.html"><i class="fa fa-chalkboard-teacher"></i> Teachers</a></li>
+			<li><a href="attendance/attendance-report.html"><i class="fa fa-calendar-check"></i> My Attendance</a></li>
+			<li><a href="marks/marks-report.html"><i class="fa fa-pen"></i> My Marks</a></li>
+			<li><a href="results/view-results.html"><i class="fa fa-chart-line"></i> Results</a></li>
+			<li><a href="#" onclick="logout('login.html')"><i class="fa fa-sign-out-alt"></i> Logout</a></li>
+		</ul>
+	</div>
+
+	<!-- MAIN CONTENT (keeps left margin for fixed sidebar) -->
+	<div class="main-content">
+
+		<div class="container">
+
+			<!-- HEADER / TOPBAR -->
+			<header class="topbar">
+				<div class="title">Dashboard</div>
+				<div class="top-actions">
+					<a class="action-link admin-only" id="addStudentBtn" href="students/add-student.html" style="display:none"><i class="fa fa-user-plus"></i> Add Student</a>
+					<div class="overview">Welcome, <strong id="dashGreeting">—</strong></div>
+				</div>
+			</header>
+
+			<main>
+				<section class="summary-grid">
+					<div class="summary-card trophy">
+						<div class="meta" id="cardScoreLabel">Overall Class Score</div>
+						<div class="big" id="cardScore">—</div>
+					</div>
+
+					<div class="summary-card work">
+						<div class="meta" id="cardSubjectsLabel">Work Assigned</div>
+						<div class="big" id="cardSubjects">—</div>
+					</div>
+
+					<div class="summary-card stat">
+						<div class="meta" id="cardAttLabel">Attendance</div>
+						<div class="big" id="cardAttendance">—</div>
+					</div>
+
+					<div class="summary-card classes">
+						<div class="meta" id="cardTotalLabel">Total Students</div>
+						<div class="big" id="cardTotalStudents">—</div>
+					</div>
+				</section>
+
+				<section class="panel cards-panel">
+					<h3 id="recentSectionTitle">Recently Added Students</h3>
+					<div class="student-list" id="proficiencyList">
+						<p style="color:#999;font-size:13px">Loading…</p>
+					</div>
+				</section>
+
+				<section class="panel table-panel admin-only" id="allStudentsSection" style="display:none">
+					<h3>All Students</h3>
+					<table>
+						<thead>
+							<tr><th>Roll No</th><th>Name</th><th>Class &amp; Section</th><th>DOB</th></tr>
+						</thead>
+						<tbody id="admissionsTbody">
+							<tr><td colspan="4" style="color:#999">Loading…</td></tr>
+						</tbody>
+					</table>
+				</section>
+			</main>
+
+		</div>
+
+	</div>
+
 </body>
+
 </html>

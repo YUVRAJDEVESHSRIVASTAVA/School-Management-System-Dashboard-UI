@@ -139,33 +139,6 @@ Open **http://127.0.0.1:5500/frontend/pages/login.html**
 
 ---
 
-## 🔑 Default Credentials
-
-### Students (40 accounts — sample)
-
-| Roll No | Name | Email | Password |
-|---|---|---|---|
-| STD-2026-0001 | Aarav Mehta | aarav.mehta@school.edu | Aarav@123 |
-| STD-2026-0011 | Rahul Sharma | rahul.sharma@school.edu | Rahul@123 |
-| STD-2026-0021 | Aditya Kapoor | aditya.kapoor@school.edu | Aditya@123 |
-| STD-2026-0031 | Aryan Kapoor | aryan.kapoor@school.edu | Aryan@123 |
-
-> Full student list in [`Student Detail/Data of student.md`](Student%20Detail/Data%20of%20student.md)
-
-### Teachers
-
-| Name | Email | Password | Subject |
-|---|---|---|---|
-| Admin | admin@school.edu | Admin@123 | Administration |
-| Rajesh Kumar | rajesh.kumar@school.edu | Rajesh@123 | Mathematics |
-| Priya Nair | priya.nair@school.edu | Priya@123 | Science |
-| Sunita Sharma | sunita.sharma@school.edu | Sunita@123 | English |
-| Amit Tiwari | amit.tiwari@school.edu | Amit@123 | Hindi |
-| Kavya Menon | kavya.menon@school.edu | Kavya@123 | Computer Science |
-| Ravi Shankar | ravi.shankar@school.edu | Ravi@123 | Physical Education |
-
----
-
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |

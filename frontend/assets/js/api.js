@@ -2,7 +2,9 @@
    School ERP  –  API helper  (api.js)
    All fetch calls to the Spring Boot backend
 ───────────────────────────────────────────── */
-var API_BASE = "http://127.0.0.1:8080/api";
+// Local development:  "http://127.0.0.1:8080/api"
+// Production (Render): replace with your Render URL before deploying
+var API_BASE = "https://your-app-name.onrender.com/api";
 
 async function apiGet(path) {
 	const res = await fetch(API_BASE + path);
